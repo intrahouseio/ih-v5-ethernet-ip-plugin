@@ -8,33 +8,33 @@
   "spacing": 4,
 
   "p2": [
-    { "prop": "title", "title": "Name", "type": "input", "default": "Ch_1" },  
-    { "prop": "devpropname", "title": "Свойство для привязки", "type": "input" },
-    { "prop": "chan", "title": "Tag Name", "type": "input" },  
-    { "prop": "dataType", "title": "Data type", "type": "input" }
+    { "prop": "title", "title": "$title", "type": "input", "default": "Ch_1" },  
+    { "prop": "devpropname", "title": "$devpropname", "type": "input" },
+    { "prop": "chan", "title": "$chan", "type": "input" },  
+    { "prop": "dataType", "title": "$dataType", "type": "input" }
   ],
 
   "p3" : [
-    { "prop": "r", "title": "Чтение", "type": "cb" },
+    { "prop": "r", "title": "$Read", "type": "cb" },
     { "prop": "calc", "title": "$Devhard_Calc", "type": "input", "hide": "!data.p3.r" },
-    { "prop": "w", "title": "Запись", "type": "cb" },
+    { "prop": "w", "title": "$Write", "type": "cb" },
     { "prop": "calc_out", "title": "$Devhard_Calc_Out", "type": "input", "hide": "!data.p3.w" },
-    { "prop": "polltimefctr", "title": "Poll time factor", "type": "number", "default": 1 }
+    { "prop": "polltimefctr", "title": "$polltimefctr", "type": "number", "default": 1 }
   ],
   "ptest": [
-    { "prop": "header_testwrite", "title": "Header_testwrite", "type": "header" },
-    { "prop": "testValue", "title": "TestValue", "type": "input" },
+    { "prop": "header_testwrite", "title": "$header_testwrite", "type": "header" },
+    { "prop": "testValue", "title": "$testValue", "type": "input" },
 
     {
       "prop": "writeButton",
-      "title": "DoWrite",
+      "title": "$doWrite",
       "type": "button",
       "command": "writetochannel",
       "param": "write"
     }
   ],
   "p9": [
-    { "prop": "realtime_chan_str", "title": "Канал", "type": "text" },
-    { "prop": "realtime_dev_str", "title": "Устройство", "type": "text" }
+    { "prop": "realtime_chan_str", "title": "$realtime_chan_str", "type": "text" },
+    { "prop": "realtime_dev_str", "title": "$realtime_dev_str", "type": "text" }
   ]
 }
