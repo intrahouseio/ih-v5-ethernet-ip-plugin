@@ -3,15 +3,35 @@
   "module": "index.js",
   "single": 0,
   "restartOnChannelsChange": 0,
-  
+
+  "validator": {
+    "main": {
+      "address": { "IPv4": true },
+      "slot": { "notempty": true },
+      "pooldelay": { "notempty": true }
+    }
+  },
 
   "channel_folder_popup": {
-    "add":[
+    "add": [
       { "id": "folder", "title": "$NewFolder" },
       { "id": "channel", "title": "$NewChannel" }
     ],
-    "browse":{"variant":"subtree"},
-    "copypaste":true,
-    "delete":true
-  }
+    "browse": { "variant": "subtree" },
+    "copypaste": true,
+    "delete": true
+  },
+  "ext": [
+    {
+      "prop": "missingChannels",
+      "note": "Missing Channels - string",
+      "vtype": "S"
+    },
+    {
+      "prop": "missingCount",
+      "note": "Missing Channels - count",
+      "vtype": "N",
+      "val": 0
+    }
+  ]
 }

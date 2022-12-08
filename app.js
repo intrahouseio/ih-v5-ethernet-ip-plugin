@@ -5,7 +5,7 @@
 
 const util = require("util");
 const tools = require('./tools');
-const { Controller, TagList, TagGroup } = require('st-ethernet-ip');
+const { Controller, Tag, TagList, TagGroup } = require('st-ethernet-ip');
 const Scanner = require("./lib/scanner");
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -13,10 +13,9 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 module.exports = async function (plugin) {
   let nextTimer; // таймер поллинга
   let toWrite = []; // Массив команд на запись
-  const tagList = new TagList();
   let chanValues = {};
   const PLC = new Controller(false, { unconnectedSendTimeout: 2000 })
-
+  const tagList = new TagList();
   const scanner = new Scanner(plugin);
 
   let channels = await plugin.channels.get();
@@ -26,14 +25,19 @@ module.exports = async function (plugin) {
   try {
     await connect(params);
     await PLC.getControllerTagList(tagList);
-    this.polls = tools.getPolls(channels, params, tagList);
+    this.polls = await tools.getPolls(channels, params, tagList, true);
     this.queue = tools.getPollArray(this.polls);
     sendNext();
   } catch (err) {
     plugin.exit(8, util.inspect(err));
   }
 
-  async function sendNext() {
+  async function sendNext(single) {
+    let isOnce = false;
+    if (typeof single !== undefined && single === true) {
+      isOnce = true;
+    }
+
     if (toWrite.length) {
       if (toWrite.length > 1) {
         plugin.log(`sendNext: WRITE group = ${util.inspect(toWrite)}`, 2);
@@ -61,7 +65,7 @@ module.exports = async function (plugin) {
 
     //plugin.log(`sendNext item = ${util.inspect(item)}`, 2);
     if (item) {
-      return read(item);
+      return read(item, !isOnce);
     } else {
       await sleep(params.polldelay || 1);
       setImmediate(() => {
@@ -80,15 +84,16 @@ module.exports = async function (plugin) {
       }).catch(err => {
         plugin.log("An error has occured : " + util.inspect(err));
         reject(err);
-        //plugin.exit();
+        plugin.exit();
       })
     });
   }
 
-  async function read(group) {
+  async function read(group, allowSendNext) {
     try {
       const res = [];
       let value;
+      //plugin.log('group.tagarr ' + util.inspect(group.tagarr, null, 7), 1);
       await PLC.readTagGroup(group.taggroup);
       group.taggroup.forEach((tag) => {
         if (typeof chanValues[tag.name] !== 'object') chanValues[tag.name] = {}
@@ -105,14 +110,41 @@ module.exports = async function (plugin) {
       if (res.length > 0) plugin.sendData(res);
 
     } catch (e) {
-      plugin.log('Read error: ' + util.inspect(e));
+      plugin.log('Read error: ' + util.inspect(e), 1);
+      if (e.toString().includes("TIMEOUT")) {
+        await connect(params);
+      } else {
+        for (let i = 0; i < group.tagarr.length; i++) {
+          const tag = new Tag(group.tagarr[i].chan);
+          try {
+            await PLC.readTag(tag);
+            if (typeof chanValues[tag.name] !== 'object') chanValues[tag.name] = {}
+            if (tag.value == true || tag.value == false) {
+              value = tag.value == false ? 0 : 1;
+            } else {
+              value = tag.value;
+            }
+            if (chanValues[tag.name].value != value) {
+              plugin.sendData({ id: tag.name, value: value });
+              chanValues[tag.name] = { value: value, tag: tag };
+            }
+          } catch (e) {
+            plugin.log("Removed Tag " + tag.name, 1);
+            plugin.send({ type: "removeChannels", data: [{ id: tag.name }] });
+          }
+        }
+        await updateChannels();
+      }
     }
 
-    await sleep(params.polldelay || 1); // Интервал между запросами
-
-    setImmediate(() => {
-      sendNext();
-    });
+    if (toWrite.length || allowSendNext) {
+      if (!toWrite.length) {
+        await sleep(params.polldelay || 1); // Интервал между запросами
+      }
+      setImmediate(() => {
+        sendNext();
+      });
+    }
   }
 
   async function write(data) {
@@ -122,7 +154,7 @@ module.exports = async function (plugin) {
       await PLC.writeTag(chanValues[data.chan].tag);
       plugin.sendData({ id: data.id, value: data.value, chan: data.chan })
     } catch (e) {
-      plugin.log('Read error: ' + util.inspect(e));
+      plugin.log('Read error: ' + util.inspect(e), 1);
     }
   }
 
@@ -138,7 +170,7 @@ module.exports = async function (plugin) {
 
   plugin.onAct(message => {
     //console.log('Write recieve', message);
-    plugin.log('ACT data=' + util.inspect(message.data));
+    plugin.log('ACT data=' + util.inspect(message.data), 1);
 
     if (!message.data) return;
     message.data.forEach(item => {
@@ -151,19 +183,24 @@ module.exports = async function (plugin) {
   });
 
   plugin.channels.onChange(async () => {
-    try {
-      clearTimeout(nextTimer);
-      channels = await plugin.channels.get();
-      this.polls = tools.getPolls(channels, params, tagList);
-      this.queue = tools.getPollArray(this.polls);
-      chanValues = {};
-      sendNext();
-    } catch (e) {
-      plugin.log('ERROR onChange: ' + util.inspect(e));
-    }
-
+    await updateChannels();
   });
 
+  async function updateChannels() {
+    try {
+
+      clearTimeout(nextTimer);
+      channels = await plugin.channels.get();
+      this.polls = await tools.getPolls(channels, params, tagList, false);
+      this.queue = tools.getPollArray(this.polls);
+      chanValues = {};
+      if (this.queue !== undefined) {
+        await sendNext(true);
+      }
+    } catch (e) {
+      plugin.log('ERROR onChange: ' + util.inspect(e), 1);
+    }
+  }
   // Завершение работы
   function terminate() {
     //client.close();
@@ -181,7 +218,7 @@ module.exports = async function (plugin) {
     if (scanObj.stop) {
       //
     } else {
-      scanner.request(PLC, scanObj.uuid, tagList);
+      scanner.request(PLC, scanObj.uuid);
     }
   });
 
