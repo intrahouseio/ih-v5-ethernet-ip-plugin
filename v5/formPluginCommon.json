@@ -7,6 +7,8 @@
 
   "spacing": 10,
   "p1": [
+    { "prop": "id", "title": "ID", "type": "text" },
+    { "prop": "name", "title": "$Name", "type": "input" },
     {
       "prop": "address",
       "title": "$address",
@@ -26,10 +28,10 @@
       "default": 200
     },
     {
-      "prop": "maxreadtags",
-      "title": "$maxreadtags",
+      "prop": "connections",
+      "title": "$connections",
       "type": "number",
-      "default": 200
+      "default": 1
     }
   ],
   "p2": [

@@ -15,54 +15,51 @@ async function getPolls(channels, params, tagList, firstStart) {
     const grouparr = [];
     let tagarr = [];
     let taggroup = new TagGroup();
-    let maxreadtags = 0;
-    if (channels.length > params.connections) {
-        maxreadtags = Math.ceil(channels.length / params.connections);
-    } else {
-        maxreadtags = channels.length;
-    }
-    
+
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
     }
-    
-    channels.sort(byorder('chan'));
-    while (channels.length > 0) {
-        let chunk = channels.splice(0, maxreadtags);
-        chunk.forEach(item => {
-            if (item.missing == 1 && firstStart) {
-                tagNameArray.forEach(tagname => {
-                    if (item.chan.startsWith(tagname)) {
-                        plugin.send({ type: "upsertChannels", data: [{ id: item.id }] });
-                        if (item.dataType == 'STRING') {
-                            taggroup.add(new Structure(item.chan, tagList));
-                            tagarr.push({ id: item.id, chan: item.chan });
-                        } else {
-                            taggroup.add(new Tag(item.chan));
-                            tagarr.push({ id: item.id, chan: item.chan });
-                        }
+    channels.sort(byorder('chan,polltimefctr'));
+    const grooupArr = groupBy(channels, 'polltimefctr');
+    Object.keys(grooupArr).forEach(key => {
+        while (grooupArr[key].length > 0) {
+            let chunk = grooupArr[key].splice(0, params.maxreadtags);
+            chunk.forEach(item => {
+                 if (item.missing == 1 && firstStart) {
+                     tagNameArray.forEach(tagname => {
+                         if (item.chan.startsWith(tagname)) {
+                             plugin.send({ type: "upsertChannels", data: [{ id: item.id }] });
+                             if (item.dataType == 'STRING') {
+                                 taggroup.add(new Structure(item.chan, tagList));
+                                 tagarr.push({ id: item.id, chan: item.chan });
+                             } else {
+                                 taggroup.add(new Tag(item.chan));
+                                 tagarr.push({ id: item.id, chan: item.chan });
+                             }
+                         }
+                     })
+                 }
+                if (item.missing == undefined || item.missing == 0) {
+                    if (item.dataType == 'STRING') {
+                        taggroup.add(new Structure(item.chan, tagList));
+                        tagarr.push({ id: item.id, chan: item.chan });
+                    } else {
+                        taggroup.add(new Tag(item.chan));
+                        tagarr.push({ id: item.id, chan: item.chan });
                     }
-                })
-            }
-            if (item.missing == undefined || item.missing == 0) {
-                if (item.dataType == 'STRING') {
-                    taggroup.add(new Structure(item.chan, tagList));
-                    tagarr.push({ id: item.id, chan: item.chan });
-                } else {
-                    taggroup.add(new Tag(item.chan));
-                    tagarr.push({ id: item.id, chan: item.chan });
                 }
-            }
-        })
-        group.taggroup = taggroup;
-        group.tagarr = tagarr;
-        grouparr.push(group);
-        taggroup = new TagGroup();
-        tagarr = [];
-        group = {};
-    }
-
+            })
+            group.taggroup = taggroup;
+            group.tagarr = tagarr;
+            group.polltimefctr = Number(key);
+            group.curpoll = 1;
+            grouparr.push(group);
+            taggroup = new TagGroup();
+            tagarr = [];
+            group = {};
+        }
+    })
 
     return grouparr
 }
@@ -70,10 +67,9 @@ async function getPolls(channels, params, tagList, firstStart) {
 
 function getPollArray(polls) {
     let arr = [];
-    /*polls.forEach(item => {
+    polls.forEach(item => {
         if (item.curpoll == item.polltimefctr) arr.push(item);
-    })*/
-    arr = polls.slice(0);
+    })
     return arr
 }
 
