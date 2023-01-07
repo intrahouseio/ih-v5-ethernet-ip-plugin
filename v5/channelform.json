@@ -1,11 +1,17 @@
 {
   "grid": [
+    { "id": "pnode", "xs": 12, "class": "main", "table": "devhard_with_parent_node", "hide": "data.pnode.foldertype != 'node'"},
     { "id": "p2", "xs": 6, "class": "main", "table": "devhard" },
     { "id": "p3", "xs": 6, "class": "main", "table": "devhard" },
     { "id": "p9", "xs": 12, "class": "main", "table": "onechannelrtTable"},
     { "id": "ptest", "xs": 12, "class": "main", "table": "devhard", "hide": "!data.p3.w" }
   ],
   "spacing": 4,
+
+  "pnode": [
+    { "prop": "foldertype", "title": "foldertype", "type": "text", "hide": "1==1" },
+    { "prop": "nodename", "title": "$nodename", "type": "text" }
+  ],
 
   "p2": [
     { "prop": "title", "title": "$title", "type": "input", "default": "Ch_1" },  

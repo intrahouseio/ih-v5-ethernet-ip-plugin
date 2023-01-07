@@ -20,7 +20,10 @@
       "title": "$slot",
       "type": "number",
       "default": 0
-    },
+    }
+    
+  ],
+  "p2": [
     {
       "prop": "polldelay",
       "title": "$polldelay",
@@ -32,9 +35,7 @@
       "title": "$connections",
       "type": "number",
       "default": 1
-    }
-  ],
-  "p2": [
+    },
     {
       "prop": "restarttime",
       "title": "$Unit_Restarttime",

@@ -15,8 +15,24 @@ class Client {
     this.queue = [];
     this.chanValues = {};
     this.toWrite = [];
-    
-    this.PLC = new Controller(false, { unconnectedSendTimeout: 2000 });
+    this.objArray = [];
+
+    this.PLC = new Controller(false);
+  }
+  isObject = obj => {
+    return typeof obj === 'object' && obj !== null && !Array.isArray(obj)
+  }
+
+  obj2arr(obj, parentname) {
+    let name = '';
+    Object.keys(obj).forEach(key => {
+      if (this.isObject(obj[key])) {
+        name = parentname == '' || parentname == undefined ? key : parentname + '.' + key;
+        this.obj2arr(obj[key], name);
+      } else {
+        this.objArray.push({ chan: parentname + '.' + key, value: obj[key] })
+      }
+    })
   }
 
   connect() {
@@ -24,11 +40,11 @@ class Client {
       const { address, slot } = this.params;
       this.PLC.connect(address, slot)
         .then(() => {
-          this.plugin.log('Client '+this.idx+' connected to ' + util.inspect(this.params.address), 1);
+          this.plugin.log('Client ' + this.idx + ' connected to ' + util.inspect(this.params.address), 1);
           resolve();
         })
         .catch(err => {
-          this.plugin.log('Client '+this.idx+' An error has occured : ' + util.inspect(err));
+          this.plugin.log('Client ' + this.idx + ' An error has occured : ' + util.inspect(err));
           this.plugin.exit();
           reject(err);
         });
@@ -57,22 +73,65 @@ class Client {
     }
   }
 
+  parseTagValue(tag, group) {
+    let value;
+    let res = [];
+    //Value Object
+    if (this.isObject(tag.value)) {
+      this.objArray = [];
+      this.obj2arr(tag.value, tag.name);
+      this.objArray.forEach(item => {
+        if (group.tagObj[item.chan] != undefined) {
+          if (typeof item.value === 'boolean') {
+            value = item.value == false ? 0 : 1;
+          } else {
+            value = item.value;
+          }
+          if (this.chanValues[group.tagObj[item.chan]] != value) {
+            res.push({ id: group.tagObj[item.chan], value });
+            this.chanValues[group.tagObj[item.chan]] = value;
+          }
+        }
+      })
+      //Value Array
+    } else if (Array.isArray(tag.value)) {
+      if (group.tagArr[tag.name] != undefined) {
+        Object.keys(group.tagArr[tag.name]).forEach(key => {
+          if (Number(key) < tag.value.length) {
+            value = tag.value[Number(key)];
+            if (this.chanValues[group.tagArr[tag.name] + key] != value) {
+              res.push({ id: group.tagArr[tag.name][key], value });
+              this.chanValues[group.tagArr[tag.name] + key] = value;
+            }
+          }
+        })
+      }
+      //Value Boolean Tag
+    } else if (typeof tag.value === 'boolean') {
+      value = tag.value == false ? 0 : 1;
+      if (this.chanValues[group.tagObj[tag.name]] != value) {
+        res.push({ id: group.tagObj[tag.name], value });
+        this.chanValues[group.tagObj[tag.name]] = value;
+      }
+      //Value Tag
+    } else {
+      value = tag.value;
+      if (this.chanValues[group.tagObj[tag.name]] != value) {
+        res.push({ id: group.tagObj[tag.name], value });
+        this.chanValues[group.tagObj[tag.name]] = value;
+      }
+    }
+    return res;
+  }
+
   async read(group, allowSendNext) {
+    let res = [];
     try {
-      const res = [];
-      let value;
+      this.plugin.log('Read taggroup start', 1);
       await this.PLC.readTagGroup(group.taggroup);
+      this.plugin.log('Read taggroup end', 1);
       group.taggroup.forEach(tag => {
-        if (typeof this.chanValues[tag.name] !== 'object') this.chanValues[tag.name] = {};
-        if (tag.value == true || tag.value == false) {
-          value = tag.value == false ? 0 : 1;
-        } else {
-          value = tag.value;
-        }
-        if (this.chanValues[tag.name].value != value) {
-          res.push({ id: tag.name, value: value });
-          this.chanValues[tag.name] = { value: value, tag: tag };
-        }
+        res.push(...this.parseTagValue(tag, group));
       });
       if (res.length > 0) this.plugin.sendData(res);
     } catch (e) {
@@ -83,28 +142,20 @@ class Client {
         await this.connect();
       } else {
         group.taggroup.forEach(item => {
-            tagarr.push(item);
+          tagarr.push(item);
         })
         for (let i = 0; i < tagarr.length; i++) {
           const tag = tagarr[i];
           try {
             await this.PLC.readTag(tag);
-            if (typeof this.chanValues[tag.name] !== 'object') this.chanValues[tag.name] = {};
-            if (tag.value == true || tag.value == false) {
-              value = tag.value == false ? 0 : 1;
-            } else {
-              value = tag.value;
-            }
-            if (this.chanValues[tag.name].value != value) {
-              this.plugin.sendData({ id: tag.name, value: value });
-              this.chanValues[tag.name] = { value: value, tag: tag };
-            }
+            res.push(...this.parseTagValue(tag, group));
           } catch (e) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
             this.polls.taggroup.remove(tag);
-            remarr.push({ id: tag.name });            
+            remarr.push({ id: tag.name });
           }
         }
+        if (res.length > 0) this.plugin.sendData(res);
         this.plugin.send({ type: 'removeChannels', data: remarr });
       }
     }
@@ -130,19 +181,27 @@ class Client {
   async writeGroup(data) {
     this.plugin.log('Data ' + util.inspect(data), 2);
     const group = new TagGroup();
+    let tag = {};
     for (let i = 0; i < data.length; i++) {
-        const tag = new Tag(data[i].chan);
-        tag.value = data[i].value;
-        group.add(tag);
+      if (data[i].nodename != undefined) {
+        if (data[i].nodetype == "ARRAY") tag = new Tag(data[i].nodename + data[i].chan);
+        if (data[i].nodetype == "STRUCT") tag = new Tag(data[i].nodename + '.' + data[i].chan);
+      } else {
+        tag = new Tag(data[i].chan);
+      } 
+      tag.value = data[i].value;
+      group.add(tag);
     }
     try {
-        await this.PLC.readTagGroup(group);
-        await this.PLC.writeTagGroup(group);
+      await this.PLC.readTagGroup(group);
+      await this.PLC.writeTagGroup(group);
     } catch (e) {
-        this.plugin.log('Write error: ' + util.inspect(e), 1);
+      this.plugin.log('Write error: ' + util.inspect(e), 1);
     }
-    
+
   }
+
+
 }
 
 module.exports = Client;

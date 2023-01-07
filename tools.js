@@ -11,9 +11,11 @@ exports.getPollArray = getPollArray;
 let tagNameArray = [];
 
 async function getPolls(channels, params, tagList, firstStart) {
-    let group = {};
     const grouparr = [];
-    let tagarr = [];
+    let group = {};
+    let tagObj = {};
+    let tagArr = {};
+    let upsertarr = [];
     let taggroup = new TagGroup();
     let maxreadtags = 0;
     if (channels.length > params.connections) {
@@ -21,49 +23,75 @@ async function getPolls(channels, params, tagList, firstStart) {
     } else {
         maxreadtags = channels.length;
     }
-    
+    plugin.log("maxreadtags " + maxreadtags, 1);
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
     }
-    
-    channels.sort(byorder('chan'));
-    while (channels.length > 0) {
-        let chunk = channels.splice(0, maxreadtags);
-        chunk.forEach(item => {
-            if (item.missing == 1 && firstStart) {
-                tagNameArray.forEach(tagname => {
-                    if (item.chan.startsWith(tagname)) {
-                        plugin.send({ type: "upsertChannels", data: [{ id: item.id }] });
-                        if (item.dataType == 'STRING') {
-                            taggroup.add(new Structure(item.chan, tagList));
-                            tagarr.push({ id: item.id, chan: item.chan });
-                        } else {
-                            taggroup.add(new Tag(item.chan));
-                            tagarr.push({ id: item.id, chan: item.chan });
+
+    // channels.sort(byorder('nodename'));
+
+    const groupchannels = groupBy(channels, 'nodename');
+    plugin.log("grouparr " + util.inspect(groupchannels, null, 7));
+    //channels.sort(byorder('chan'));
+    Object.keys(groupchannels).forEach(key => {
+        if (key == 'undefined') {
+            groupchannels[key].ref.forEach(item => {
+                if (item.missing == 1 && firstStart) {
+                    tagNameArray.forEach(tagname => {
+                        if (item.chan.startsWith(tagname)) {
+                            upsertarr.push({ id: item.chan });
+                            if (item.dataType == 'STRING') {
+                                taggroup.add(new Structure(item.chan, tagList));
+                                tagObj[item.chan] = item.id;
+                            } else {
+                                taggroup.add(new Tag(item.chan));
+                                tagObj[item.chan] = item.id;
+                            }
                         }
+                    })
+                }
+                if (item.missing == undefined || item.missing == 0) {
+                    if (item.dataType == 'STRING') {
+                        taggroup.add(new Structure(item.chan, tagList));
+                        tagObj[item.chan] = item.id;
+                    } else {
+                        taggroup.add(new Tag(item.chan));
+                        tagObj[item.chan] = item.id;
                     }
+                }
+            })
+            if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
+        } else {
+            if (groupchannels[key].type == 'STRUCT') {
+                taggroup.add(new Structure(key, tagList));
+                groupchannels[key].ref.forEach(item => {
+                    tagObj[item.nodename + "." + item.chan] = item.id;
                 })
             }
-            if (item.missing == undefined || item.missing == 0) {
-                if (item.dataType == 'STRING') {
-                    taggroup.add(new Structure(item.chan, tagList));
-                    tagarr.push({ id: item.id, chan: item.chan });
-                } else {
-                    taggroup.add(new Tag(item.chan));
-                    tagarr.push({ id: item.id, chan: item.chan });
-                }
+
+            if (groupchannels[key].type == 'ARRAY') {
+                taggroup.add(new Tag(key, null, null, 0, 1, groupchannels[key].size));
+                const obj = {};
+                groupchannels[key].ref.forEach(item => {
+                    obj[item.chan.split(/[.[\],]/).filter(segment => segment.length > 0)] = item.id;
+                });
+                tagArr[key] = obj;
             }
-        })
-        group.taggroup = taggroup;
-        group.tagarr = tagarr;
-        grouparr.push(group);
-        taggroup = new TagGroup();
-        tagarr = [];
-        group = {};
-    }
+
+        }
+    })
+    group.taggroup = taggroup;
+    group.tagObj = tagObj;
+    group.tagArr = tagArr;
+    grouparr.push(group);
+    taggroup = new TagGroup();
+    tagArr = {};
+    tagObj = {};
+    group = {};
 
 
+    //plugin.log("grouparr " + util.inspect(grouparr, null, 7));
     return grouparr
 }
 
@@ -77,16 +105,19 @@ function getPollArray(polls) {
     return arr
 }
 
-const groupBy = (items, key) => items.reduce(
-    (result, item) => ({
-        ...result,
-        [item[key]]: [
-            ...(result[item[key]] || []),
-            item,
-        ],
-    }),
-    {},
-);
+function groupBy(objectArray, property) {
+    return objectArray.reduce(function (acc, obj) {
+        let key = obj[property];
+        if (!acc[key]) {
+            acc[key] = {};
+            acc[key].type = obj.nodetype;
+            acc[key].size = obj.nodesize;
+            acc[key].ref = [];
+        }
+        acc[key].ref.push(obj);
+        return acc;
+    }, {});
+}
 
 
 function byorder(ordernames, direction, parsingInt) {

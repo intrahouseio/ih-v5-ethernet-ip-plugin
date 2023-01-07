@@ -3,7 +3,7 @@
   "module": "index.js",
   "single": 0,
   "restartOnChannelsChange": 0,
-
+  "innerId":1,
   "validator": {
     "main": {
       "address": { "IPv4": true },
@@ -12,26 +12,29 @@
     }
   },
 
+  "share_node_folder_fields":["nodename", "nodetype", "nodesize"],
+
   "channel_folder_popup": {
     "add": [
-      { "id": "folder", "title": "$NewFolder" },
+      { "id": "channel_folder", "title": "$NewFolder" },
+      { "id": "channel_node_folder", "title": "$NewNode" },
       { "id": "channel", "title": "$NewChannel" }
     ],
     "browse": { "variant": "subtree" },
     "copypaste": true,
     "delete": true
   },
-  "ext": [
-    {
-      "prop": "missingChannels",
-      "note": "Missing Channels - string",
-      "vtype": "S"
-    },
-    {
-      "prop": "missingCount",
-      "note": "Missing Channels - count",
-      "vtype": "N",
-      "val": 0
-    }
-  ]
+
+  "default_channel_node_folder": {
+    "foldertype": "node",
+    "nodename": "",
+    "nodetype": "STRUCT",
+    "nodesize": "100"
+  },
+  
+  "default_channel": {
+    "title": "ch1",
+    "chan": "ch1",
+    "r":1
+  }
 }
