@@ -15,15 +15,15 @@ async function getPolls(channels, params, tagList, firstStart) {
     let group = {};
     let tagObj = {};
     let tagArr = {};
+    let tagAlone = {};
     let upsertarr = [];
     let taggroup = new TagGroup();
     let maxreadtags = 0;
-    if (channels.length > params.connections) {
+   /* if (channels.length > params.connections) {
         maxreadtags = Math.ceil(channels.length / params.connections);
     } else {
         maxreadtags = channels.length;
-    }
-    plugin.log("maxreadtags " + maxreadtags, 1);
+    }*/
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
@@ -32,7 +32,6 @@ async function getPolls(channels, params, tagList, firstStart) {
     // channels.sort(byorder('nodename'));
 
     const groupchannels = groupBy(channels, 'nodename');
-    plugin.log("grouparr " + util.inspect(groupchannels, null, 7));
     //channels.sort(byorder('chan'));
     Object.keys(groupchannels).forEach(key => {
         if (key == 'undefined') {
@@ -43,10 +42,10 @@ async function getPolls(channels, params, tagList, firstStart) {
                             upsertarr.push({ id: item.chan });
                             if (item.dataType == 'STRING') {
                                 taggroup.add(new Structure(item.chan, tagList));
-                                tagObj[item.chan] = item.id;
+                                tagAlone[item.chan] = item.id;
                             } else {
                                 taggroup.add(new Tag(item.chan));
-                                tagObj[item.chan] = item.id;
+                                tagAlone[item.chan] = item.id;
                             }
                         }
                     })
@@ -54,10 +53,10 @@ async function getPolls(channels, params, tagList, firstStart) {
                 if (item.missing == undefined || item.missing == 0) {
                     if (item.dataType == 'STRING') {
                         taggroup.add(new Structure(item.chan, tagList));
-                        tagObj[item.chan] = item.id;
+                        tagAlone[item.chan] = item.id;
                     } else {
                         taggroup.add(new Tag(item.chan));
-                        tagObj[item.chan] = item.id;
+                        tagAlone[item.chan] = item.id;
                     }
                 }
             })
@@ -65,18 +64,39 @@ async function getPolls(channels, params, tagList, firstStart) {
         } else {
             if (groupchannels[key].type == 'STRUCT') {
                 taggroup.add(new Structure(key, tagList));
-                groupchannels[key].ref.forEach(item => {
-                    tagObj[item.nodename + "." + item.chan] = item.id;
+                groupchannels[key].ref.forEach(item => {                    
+                    let memArr = item.chan.split(".");
+                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);                 
+                    if (isBitIndex) {
+                        let chan = memArr.slice(0,memArr.length-1).join('.');
+                        let offset = 0;
+                        offset = parseInt(memArr[memArr.length - 1]);
+                        if (!tagObj[item.nodename + "." + chan]) tagObj[item.nodename + "." + chan] = [];
+                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset });
+                    } else {
+                        if (!tagObj[item.nodename + "." + item.chan]) tagObj[item.nodename + "." + item.chan] = [];
+                        tagObj[item.nodename + "." + item.chan].push({ id: item.id });
+                    }
                 })
             }
 
             if (groupchannels[key].type == 'ARRAY') {
                 taggroup.add(new Tag(key, null, null, 0, 1, groupchannels[key].size));
-                const obj = {};
                 groupchannels[key].ref.forEach(item => {
-                    obj[item.chan.split(/[.[\],]/).filter(segment => segment.length > 0)] = item.id;
+                    const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
+                    let memArr = item.chan.split(".");
+                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0); 
+                    if (isBitIndex) {
+                        let offset = 0;
+                        offset = parseInt(memArr[memArr.length - 1]);
+                        if (!tagArr[key]) tagArr[key] = [];
+                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset});
+                    } else {
+                        if (!tagArr[key]) tagArr[key] = [];
+                        tagArr[key].push({ index: Number(index), id:item.id });
+                    }
+                    
                 });
-                tagArr[key] = obj;
             }
 
         }
@@ -84,14 +104,14 @@ async function getPolls(channels, params, tagList, firstStart) {
     group.taggroup = taggroup;
     group.tagObj = tagObj;
     group.tagArr = tagArr;
+    group.tagAlone = tagAlone;
     grouparr.push(group);
     taggroup = new TagGroup();
+    tagAlone = {};
     tagArr = {};
     tagObj = {};
     group = {};
 
-
-    //plugin.log("grouparr " + util.inspect(grouparr, null, 7));
     return grouparr
 }
 

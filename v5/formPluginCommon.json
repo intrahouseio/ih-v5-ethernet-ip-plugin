@@ -31,10 +31,10 @@
       "default": 200
     },
     {
-      "prop": "connections",
-      "title": "$connections",
-      "type": "number",
-      "default": 1
+      "prop": "connectedMessaging",
+      "title": "connected Messaging",
+      "type": "cb",
+      "default": false
     },
     {
       "prop": "restarttime",

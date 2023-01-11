@@ -39,8 +39,8 @@ module.exports = async function (plugin) {
       let nextClient = new Client(plugin, params, i);
       clientArr[i] = nextClient;
       await nextClient.connect();
-      nextClient.setPolls(allPolls[i-1]); 
-      nextClient.sendNext(); 
+      nextClient.setPolls(allPolls[i - 1]);
+      nextClient.sendNext();
 
     } catch (e) {
       plugin.log('Client ' + i + ' error: ' + util.inspect(e), 1);
@@ -52,7 +52,13 @@ module.exports = async function (plugin) {
 
     if (!message.data) return;
     message.data.forEach(item => {
-      toWrite.push({ id: item.id, value: item.value, chan: item.chan, nodename: item.nodename, nodetype: item.nodetype });
+      toWrite.push({
+        id: item.id,
+        value: item.value,
+        chan: item.chan,
+        nodename: item.nodename,
+        nodetype: item.nodetype
+      });
     });
     await firstClient.writeGroup(toWrite);
     toWrite = [];
@@ -111,8 +117,8 @@ module.exports = async function (plugin) {
     }
   });
 
- /* process.on("SIGTERM", () => {
-    plugin.exit();
-  });*/
+  /* process.on("SIGTERM", () => {
+     plugin.exit();
+   });*/
 };
 

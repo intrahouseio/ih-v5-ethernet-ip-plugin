@@ -17,12 +17,12 @@ class Client {
     this.toWrite = [];
     this.objArray = [];
 
-    this.PLC = new Controller(false);
+    this.PLC = new Controller(this.params.connectedMessaging == 0 ? false : this.idx>0);
   }
   isObject = obj => {
     return typeof obj === 'object' && obj !== null && !Array.isArray(obj)
   }
-
+  //Преобразует объект в массив объектов
   obj2arr(obj, parentname) {
     let name = '';
     Object.keys(obj).forEach(key => {
@@ -82,43 +82,57 @@ class Client {
       this.obj2arr(tag.value, tag.name);
       this.objArray.forEach(item => {
         if (group.tagObj[item.chan] != undefined) {
-          if (typeof item.value === 'boolean') {
-            value = item.value == false ? 0 : 1;
-          } else {
-            value = item.value;
-          }
-          if (this.chanValues[group.tagObj[item.chan]] != value) {
-            res.push({ id: group.tagObj[item.chan], value });
-            this.chanValues[group.tagObj[item.chan]] = value;
-          }
+          group.tagObj[item.chan].forEach(ref => {
+            if (ref.offset == undefined) {
+              if (typeof item.value === 'boolean') {
+                value = item.value == false ? 0 : 1;
+              } else {
+                value = item.value;     
+              }
+            } else {
+              value = item.value & (1 << ref.offset) ? 1 : 0;
+            }
+            if (this.chanValues[ref.id] != value) {
+              res.push({ id: ref.id, value });
+              this.chanValues[ref.id] = value;
+            }
+          })
         }
       })
       //Value Array
     } else if (Array.isArray(tag.value)) {
       if (group.tagArr[tag.name] != undefined) {
-        Object.keys(group.tagArr[tag.name]).forEach(key => {
-          if (Number(key) < tag.value.length) {
-            value = tag.value[Number(key)];
-            if (this.chanValues[group.tagArr[tag.name] + key] != value) {
-              res.push({ id: group.tagArr[tag.name][key], value });
-              this.chanValues[group.tagArr[tag.name] + key] = value;
+        group.tagArr[tag.name].forEach(ref => {
+          if (ref.offset == undefined) {
+            if (ref.index < tag.value.length) {
+              if (typeof tag.value[ref.index] === 'boolean') {
+                value = tag.value[ref.index] == false ? 0 : 1;
+              } else {
+                value = tag.value[ref.index];     
+              }  
             }
+          } else {
+            value = tag.value[ref.index] & (1 << ref.offset) ? 1 : 0;
+          }
+          if (this.chanValues[ref.id] != value) {
+            res.push({ id: ref.id, value });
+            this.chanValues[ref.id] = value;
           }
         })
       }
       //Value Boolean Tag
     } else if (typeof tag.value === 'boolean') {
       value = tag.value == false ? 0 : 1;
-      if (this.chanValues[group.tagObj[tag.name]] != value) {
-        res.push({ id: group.tagObj[tag.name], value });
-        this.chanValues[group.tagObj[tag.name]] = value;
+      if (this.chanValues[group.tagAlone[tag.name]] != value) {
+        res.push({ id: group.tagAlone[tag.name], value });
+        this.chanValues[group.tagAlone[tag.name]] = value;
       }
       //Value Tag
     } else {
       value = tag.value;
-      if (this.chanValues[group.tagObj[tag.name]] != value) {
-        res.push({ id: group.tagObj[tag.name], value });
-        this.chanValues[group.tagObj[tag.name]] = value;
+      if (this.chanValues[group.tagAlone[tag.name]] != value) {
+        res.push({ id: group.tagAlone[tag.name], value });
+        this.chanValues[group.tagAlone[tag.name]] = value;
       }
     }
     return res;
@@ -127,9 +141,7 @@ class Client {
   async read(group, allowSendNext) {
     let res = [];
     try {
-      this.plugin.log('Read taggroup start', 1);
       await this.PLC.readTagGroup(group.taggroup);
-      this.plugin.log('Read taggroup end', 1);
       group.taggroup.forEach(tag => {
         res.push(...this.parseTagValue(tag, group));
       });
