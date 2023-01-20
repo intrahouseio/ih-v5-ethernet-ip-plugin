@@ -93,7 +93,7 @@ class Client {
               value = item.value & (1 << ref.offset) ? 1 : 0;
             }
             if (this.chanValues[ref.id] != value) {
-              res.push({ id: ref.id, value });
+              res.push({ id: ref.id, value , title: ref.title});
               this.chanValues[ref.id] = value;
             }
           })
@@ -115,7 +115,7 @@ class Client {
             value = tag.value[ref.index] & (1 << ref.offset) ? 1 : 0;
           }
           if (this.chanValues[ref.id] != value) {
-            res.push({ id: ref.id, value });
+            res.push({ id: ref.id, value, title:ref.title });
             this.chanValues[ref.id] = value;
           }
         })
@@ -124,14 +124,14 @@ class Client {
     } else if (typeof tag.value === 'boolean') {
       value = tag.value == false ? 0 : 1;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
       //Value Tag
     } else {
       value = tag.value;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
     }
@@ -164,7 +164,7 @@ class Client {
           } catch (e) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
             this.polls.taggroup.remove(tag);
-            remarr.push({ id: tag.name });
+            remarr.push({ id: tag.itemid });
           }
         }
         if (res.length > 0) this.plugin.sendData(res);

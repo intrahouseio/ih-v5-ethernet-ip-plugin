@@ -39,7 +39,7 @@ async function getPolls(channels, params, tagList, firstStart) {
                 if (item.missing == 1 && firstStart) {
                     tagNameArray.forEach(tagname => {
                         if (item.chan.startsWith(tagname)) {
-                            upsertarr.push({ id: item.chan });
+                            upsertarr.push({ id: item.id });
                             if (item.dataType == 'STRING') {
                                 taggroup.add(new Structure(item.chan, tagList));
                                 tagAlone[item.chan] = item.id;
@@ -51,19 +51,26 @@ async function getPolls(channels, params, tagList, firstStart) {
                     })
                 }
                 if (item.missing == undefined || item.missing == 0) {
+                    let tag = {};
                     if (item.dataType == 'STRING') {
-                        taggroup.add(new Structure(item.chan, tagList));
+                        tag = new Structure(item.chan, tagList);
+                        taggroup.add(tag);
                         tagAlone[item.chan] = item.id;
                     } else {
-                        taggroup.add(new Tag(item.chan));
+                        tag = new Tag(item.chan);
+                        taggroup.add(tag);
                         tagAlone[item.chan] = item.id;
                     }
-                }
+                    tag.itemid = item.id;
+                }   
             })
             if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
         } else {
             if (groupchannels[key].type == 'STRUCT') {
-                taggroup.add(new Structure(key, tagList));
+                let tag = {};
+                tag = new Structure(key, tagList);
+                tag.itemid = groupchannels[key].parentnodefolder;
+                taggroup.add(tag);
                 groupchannels[key].ref.forEach(item => {                    
                     let memArr = item.chan.split(".");
                     const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);                 
@@ -72,16 +79,19 @@ async function getPolls(channels, params, tagList, firstStart) {
                         let offset = 0;
                         offset = parseInt(memArr[memArr.length - 1]);
                         if (!tagObj[item.nodename + "." + chan]) tagObj[item.nodename + "." + chan] = [];
-                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset });
+                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset, title: item.nodename + "." + chan + '.' + offset});
                     } else {
                         if (!tagObj[item.nodename + "." + item.chan]) tagObj[item.nodename + "." + item.chan] = [];
-                        tagObj[item.nodename + "." + item.chan].push({ id: item.id });
+                        tagObj[item.nodename + "." + item.chan].push({ id: item.id, title: item.nodename + "." + item.chan });
                     }
                 })
             }
 
             if (groupchannels[key].type == 'ARRAY') {
-                taggroup.add(new Tag(key, null, null, 0, 1, groupchannels[key].size));
+                let tag = {};
+                tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
+                tag.itemid = groupchannels[key].parentnodefolder;
+                taggroup.add(tag);
                 groupchannels[key].ref.forEach(item => {
                     const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
                     let memArr = item.chan.split(".");
@@ -90,10 +100,10 @@ async function getPolls(channels, params, tagList, firstStart) {
                         let offset = 0;
                         offset = parseInt(memArr[memArr.length - 1]);
                         if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset});
+                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key+"["+index[0]+"]"+"."+offset});
                     } else {
                         if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index), id:item.id });
+                        tagArr[key].push({ index: Number(index), id:item.id, title: key+"["+index+"]"});
                     }
                     
                 });
@@ -111,7 +121,7 @@ async function getPolls(channels, params, tagList, firstStart) {
     tagArr = {};
     tagObj = {};
     group = {};
-
+    
     return grouparr
 }
 
@@ -132,6 +142,8 @@ function groupBy(objectArray, property) {
             acc[key] = {};
             acc[key].type = obj.nodetype;
             acc[key].size = obj.nodesize;
+            acc[key].parentnodefolder = obj.parentnodefolder;
+            acc[key].missing = obj.missing;
             acc[key].ref = [];
         }
         acc[key].ref.push(obj);
