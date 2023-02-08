@@ -36,5 +36,11 @@
     "title": "ch1",
     "chan": "ch1",
     "r":1
-  }
+  },
+  
+  "ext":[
+    { "prop": "missingCount", "note": "Number of missing channels", "vtype": "N"},
+    { "prop": "missingChannels", "note": "List of missing channels", "vtype": "S"}
+  ]
+
 }

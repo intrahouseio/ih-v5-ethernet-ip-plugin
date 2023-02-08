@@ -18,12 +18,13 @@ async function getPolls(channels, params, tagList, firstStart) {
     let tagAlone = {};
     let upsertarr = [];
     let taggroup = new TagGroup();
-    let maxreadtags = 0;
-   /* if (channels.length > params.connections) {
-        maxreadtags = Math.ceil(channels.length / params.connections);
-    } else {
-        maxreadtags = channels.length;
-    }*/
+    let tagscnt = 0;
+    let taggroupArr = [];
+    /* if (channels.length > params.connections) {
+         maxreadtags = Math.ceil(channels.length / params.connections);
+     } else {
+         maxreadtags = channels.length;
+     }*/
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
@@ -36,82 +37,102 @@ async function getPolls(channels, params, tagList, firstStart) {
     Object.keys(groupchannels).forEach(key => {
         if (key == 'undefined') {
             groupchannels[key].ref.forEach(item => {
+                let tag = {};
                 if (item.missing == 1 && firstStart) {
                     tagNameArray.forEach(tagname => {
                         if (item.chan.startsWith(tagname)) {
                             upsertarr.push({ id: item.id });
                             if (item.dataType == 'STRING') {
-                                taggroup.add(new Structure(item.chan, tagList));
+                                tag = new Structure(item.chan, tagList);
+                                taggroup.add(tag);
+                                tagscnt++;
                                 tagAlone[item.chan] = item.id;
                             } else {
-                                taggroup.add(new Tag(item.chan));
+                                tag = new Tag(item.chan);
+                                taggroup.add(tag);
+                                tagscnt++;
                                 tagAlone[item.chan] = item.id;
                             }
                         }
                     })
                 }
                 if (item.missing == undefined || item.missing == 0) {
-                    let tag = {};
                     if (item.dataType == 'STRING') {
                         tag = new Structure(item.chan, tagList);
                         taggroup.add(tag);
+                        tagscnt++;
                         tagAlone[item.chan] = item.id;
                     } else {
                         tag = new Tag(item.chan);
                         taggroup.add(tag);
+                        tagscnt++;
                         tagAlone[item.chan] = item.id;
                     }
-                    tag.itemid = item.id;
-                }   
+                }
+                tag.itemid = item.id;
+                if (tagscnt > params.structNum) {
+                    taggroupArr.push(taggroup);
+                    tagscnt = 0;
+                    taggroup = new TagGroup();
+                } 
             })
-            if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
+
         } else {
             if (groupchannels[key].type == 'STRUCT') {
                 let tag = {};
                 tag = new Structure(key, tagList);
-                tag.itemid = groupchannels[key].parentnodefolder;
+                tag.parentnodefolder = groupchannels[key].parentnodefolder;
                 taggroup.add(tag);
-                groupchannels[key].ref.forEach(item => {                    
+                tagscnt++;
+                groupchannels[key].ref.forEach(item => {
                     let memArr = item.chan.split(".");
-                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);                 
+                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
                     if (isBitIndex) {
-                        let chan = memArr.slice(0,memArr.length-1).join('.');
+                        let chan = memArr.slice(0, memArr.length - 1).join('.');
                         let offset = 0;
                         offset = parseInt(memArr[memArr.length - 1]);
                         if (!tagObj[item.nodename + "." + chan]) tagObj[item.nodename + "." + chan] = [];
-                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset, title: item.nodename + "." + chan + '.' + offset});
+                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset, title: item.nodename + "." + chan + '.' + offset });
                     } else {
                         if (!tagObj[item.nodename + "." + item.chan]) tagObj[item.nodename + "." + item.chan] = [];
                         tagObj[item.nodename + "." + item.chan].push({ id: item.id, title: item.nodename + "." + item.chan });
                     }
-                })
+                })     
             }
 
             if (groupchannels[key].type == 'ARRAY') {
                 let tag = {};
                 tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
-                tag.itemid = groupchannels[key].parentnodefolder;
+                tag.parentnodefolder = groupchannels[key].parentnodefolder;
                 taggroup.add(tag);
+                tagscnt++;
                 groupchannels[key].ref.forEach(item => {
                     const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
                     let memArr = item.chan.split(".");
-                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0); 
+                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
                     if (isBitIndex) {
                         let offset = 0;
                         offset = parseInt(memArr[memArr.length - 1]);
                         if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key+"["+index[0]+"]"+"."+offset});
+                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key + "[" + index[0] + "]" + "." + offset });
                     } else {
                         if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index), id:item.id, title: key+"["+index+"]"});
+                        tagArr[key].push({ index: Number(index), id: item.id, title: key + "[" + index + "]" });
                     }
-                    
+
                 });
             }
+            if (tagscnt > params.structNum) {
+                taggroupArr.push(taggroup);
+                tagscnt = 0;
+                taggroup = new TagGroup();
+            } 
 
         }
     })
-    group.taggroup = taggroup;
+
+    if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
+    group.taggroupArr = taggroupArr;
     group.tagObj = tagObj;
     group.tagArr = tagArr;
     group.tagAlone = tagAlone;
@@ -121,7 +142,7 @@ async function getPolls(channels, params, tagList, firstStart) {
     tagArr = {};
     tagObj = {};
     group = {};
-    
+
     return grouparr
 }
 

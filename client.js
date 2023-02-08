@@ -141,10 +141,13 @@ class Client {
   async read(group, allowSendNext) {
     let res = [];
     try {
-      await this.PLC.readTagGroup(group.taggroup);
-      group.taggroup.forEach(tag => {
-        res.push(...this.parseTagValue(tag, group));
-      });
+      for(let i=0; i<group.taggroupArr.length; i++) {
+        await this.PLC.readTagGroup(group.taggroupArr[i]);
+        group.taggroupArr[i].forEach(tag => {
+          res.push(...this.parseTagValue(tag, group));
+        });
+      }
+      
       if (res.length > 0) this.plugin.sendData(res);
     } catch (e) {
       let remarr = [];
@@ -153,8 +156,10 @@ class Client {
       if (e.toString().includes('TIMEOUT')) {
         await this.connect();
       } else {
-        group.taggroup.forEach(item => {
-          tagarr.push(item);
+        group.taggroupArr.forEach(group => {
+          group.forEach(item => {
+            tagarr.push(item);
+          }) 
         })
         for (let i = 0; i < tagarr.length; i++) {
           const tag = tagarr[i];
@@ -164,7 +169,12 @@ class Client {
           } catch (e) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
             this.polls.taggroup.remove(tag);
-            remarr.push({ id: tag.itemid });
+            if (tag.itemid) {
+              remarr.push({ id: tag.itemid });
+            } else {
+              remarr.push({ parentnodefolder: tag.parentnodefolder });
+            }
+            
           }
         }
         if (res.length > 0) this.plugin.sendData(res);

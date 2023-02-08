@@ -37,6 +37,12 @@
       "default": false
     },
     {
+      "prop": "structNum",
+      "title": "Number of structures in group",
+      "type": "number",
+      "default": 100
+    },
+    {
       "prop": "restarttime",
       "title": "$Unit_Restarttime",
       "type": "number",

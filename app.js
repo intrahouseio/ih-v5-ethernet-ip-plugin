@@ -17,6 +17,7 @@ module.exports = async function (plugin) {
   const scanner = new Scanner(plugin);
 
   let channels = await plugin.channels.get();
+  plugin.log('Received channels data: '+util.inspect(channels)), 2;
   const params = plugin.params.data;
 
   const clientArr = [];
