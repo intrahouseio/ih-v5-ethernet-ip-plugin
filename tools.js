@@ -20,130 +20,134 @@ async function getPolls(channels, params, tagList, firstStart) {
     let taggroup = new TagGroup();
     let tagscnt = 0;
     let taggroupArr = [];
-    /* if (channels.length > params.connections) {
-         maxreadtags = Math.ceil(channels.length / params.connections);
-     } else {
-         maxreadtags = channels.length;
-     }*/
+    if (channels.length > params.connections) {
+        maxreadtags = Math.ceil(channels.length / params.connections);
+    } else {
+        maxreadtags = channels.length;
+    }
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
     }
 
-    // channels.sort(byorder('nodename'));
+    channels.sort(byorder('nodename'));
+    while (channels.length > 0) {
+        let chunk = channels.splice(0, maxreadtags);
+        const groupchannels = groupBy(chunk, 'nodename');
 
-    const groupchannels = groupBy(channels, 'nodename');
-    //channels.sort(byorder('chan'));
-    Object.keys(groupchannels).forEach(key => {
-        if (key == 'undefined') {
-            groupchannels[key].ref.forEach(item => {
-                let tag = {};
-                if (item.missing == 1 && firstStart) {
-                    tagNameArray.forEach(tagname => {
-                        if (item.chan.startsWith(tagname)) {
-                            upsertarr.push({ id: item.id });
-                            if (item.dataType == 'STRING') {
-                                tag = new Structure(item.chan, tagList);
-                                taggroup.add(tag);
-                                tagscnt++;
-                                tagAlone[item.chan] = item.id;
-                            } else {
-                                tag = new Tag(item.chan);
-                                taggroup.add(tag);
-                                tagscnt++;
-                                tagAlone[item.chan] = item.id;
+        //channels.sort(byorder('chan'));
+        Object.keys(groupchannels).forEach(key => {
+            if (key == 'undefined') {
+                groupchannels[key].ref.forEach(item => {
+                    let tag = {};
+                    if (item.missing == 1 && firstStart) {
+                        tagNameArray.forEach(tagname => {
+                            if (item.chan.startsWith(tagname)) {
+                                upsertarr.push({ id: item.id });
+                                if (item.dataType == 'STRING') {
+                                    tag = new Structure(item.chan, tagList);
+                                    taggroup.add(tag);
+                                    tagscnt++;
+                                    tagAlone[item.chan] = item.id;
+                                } else {
+                                    tag = new Tag(item.chan);
+                                    taggroup.add(tag);
+                                    tagscnt++;
+                                    tagAlone[item.chan] = item.id;
+                                }
                             }
+                        })
+                    }
+                    if (item.missing == undefined || item.missing == 0) {
+                        if (item.dataType == 'STRING') {
+                            tag = new Structure(item.chan, tagList);
+                            taggroup.add(tag);
+                            tagscnt++;
+                            tagAlone[item.chan] = item.id;
+                        } else {
+                            tag = new Tag(item.chan);
+                            taggroup.add(tag);
+                            tagscnt++;
+                            tagAlone[item.chan] = item.id;
+                        }
+                    }
+                    tag.itemid = item.id;
+                    if (tagscnt > params.structNum) {
+                        taggroupArr.push(taggroup);
+                        tagscnt = 0;
+                        taggroup = new TagGroup();
+                    }
+                })
+
+            } else {
+                if (groupchannels[key].type == 'STRUCT') {
+                    let tag = {};
+                    tag = new Structure(key, tagList);
+                    tag.parentnodefolder = groupchannels[key].parentnodefolder;
+                    taggroup.add(tag);
+                    tagscnt++;
+                    groupchannels[key].ref.forEach(item => {
+                        let memArr = item.chan.split(".");
+                        const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
+                        if (isBitIndex) {
+                            let chan = memArr.slice(0, memArr.length - 1).join('.');
+                            let offset = 0;
+                            offset = parseInt(memArr[memArr.length - 1]);
+                            if (!tagObj[item.nodename + "." + chan]) tagObj[item.nodename + "." + chan] = [];
+                            tagObj[item.nodename + "." + chan].push({ id: item.id, offset, title: item.nodename + "." + chan + '.' + offset });
+                        } else {
+                            if (!tagObj[item.nodename + "." + item.chan]) tagObj[item.nodename + "." + item.chan] = [];
+                            tagObj[item.nodename + "." + item.chan].push({ id: item.id, title: item.nodename + "." + item.chan });
                         }
                     })
                 }
-                if (item.missing == undefined || item.missing == 0) {
-                    if (item.dataType == 'STRING') {
-                        tag = new Structure(item.chan, tagList);
-                        taggroup.add(tag);
-                        tagscnt++;
-                        tagAlone[item.chan] = item.id;
-                    } else {
-                        tag = new Tag(item.chan);
-                        taggroup.add(tag);
-                        tagscnt++;
-                        tagAlone[item.chan] = item.id;
-                    }
+
+                if (groupchannels[key].type == 'ARRAY') {
+                    let tag = {};
+                    tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
+                    tag.parentnodefolder = groupchannels[key].parentnodefolder;
+                    taggroup.add(tag);
+                    tagscnt++;
+                    groupchannels[key].ref.forEach(item => {
+                        const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
+                        let memArr = item.chan.split(".");
+                        const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
+                        if (isBitIndex) {
+                            let offset = 0;
+                            offset = parseInt(memArr[memArr.length - 1]);
+                            if (!tagArr[key]) tagArr[key] = [];
+                            tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key + "[" + index[0] + "]" + "." + offset });
+                        } else {
+                            if (!tagArr[key]) tagArr[key] = [];
+                            tagArr[key].push({ index: Number(index), id: item.id, title: key + "[" + index + "]" });
+                        }
+
+                    });
                 }
-                tag.itemid = item.id;
                 if (tagscnt > params.structNum) {
                     taggroupArr.push(taggroup);
                     tagscnt = 0;
                     taggroup = new TagGroup();
-                } 
-            })
+                }
 
-        } else {
-            if (groupchannels[key].type == 'STRUCT') {
-                let tag = {};
-                tag = new Structure(key, tagList);
-                tag.parentnodefolder = groupchannels[key].parentnodefolder;
-                taggroup.add(tag);
-                tagscnt++;
-                groupchannels[key].ref.forEach(item => {
-                    let memArr = item.chan.split(".");
-                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
-                    if (isBitIndex) {
-                        let chan = memArr.slice(0, memArr.length - 1).join('.');
-                        let offset = 0;
-                        offset = parseInt(memArr[memArr.length - 1]);
-                        if (!tagObj[item.nodename + "." + chan]) tagObj[item.nodename + "." + chan] = [];
-                        tagObj[item.nodename + "." + chan].push({ id: item.id, offset, title: item.nodename + "." + chan + '.' + offset });
-                    } else {
-                        if (!tagObj[item.nodename + "." + item.chan]) tagObj[item.nodename + "." + item.chan] = [];
-                        tagObj[item.nodename + "." + item.chan].push({ id: item.id, title: item.nodename + "." + item.chan });
-                    }
-                })     
             }
+        })
 
-            if (groupchannels[key].type == 'ARRAY') {
-                let tag = {};
-                tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
-                tag.parentnodefolder = groupchannels[key].parentnodefolder;
-                taggroup.add(tag);
-                tagscnt++;
-                groupchannels[key].ref.forEach(item => {
-                    const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
-                    let memArr = item.chan.split(".");
-                    const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
-                    if (isBitIndex) {
-                        let offset = 0;
-                        offset = parseInt(memArr[memArr.length - 1]);
-                        if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key + "[" + index[0] + "]" + "." + offset });
-                    } else {
-                        if (!tagArr[key]) tagArr[key] = [];
-                        tagArr[key].push({ index: Number(index), id: item.id, title: key + "[" + index + "]" });
-                    }
-
-                });
-            }
-            if (tagscnt > params.structNum) {
-                taggroupArr.push(taggroup);
-                tagscnt = 0;
-                taggroup = new TagGroup();
-            } 
-
-        }
-    })
-
-    if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
-    group.taggroupArr = taggroupArr;
-    group.tagObj = tagObj;
-    group.tagArr = tagArr;
-    group.tagAlone = tagAlone;
-    grouparr.push(group);
-    taggroup = new TagGroup();
-    tagAlone = {};
-    tagArr = {};
-    tagObj = {};
-    group = {};
-
+        if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
+        group.taggroupArr = taggroupArr;
+        group.tagObj = tagObj;
+        group.tagArr = tagArr;
+        group.tagAlone = tagAlone;
+        grouparr.push(group);
+        taggroup = new TagGroup();
+        tagAlone = {};
+        tagArr = {};
+        tagObj = {};
+        group = {};
+    }
+    
     return grouparr
+
 }
 
 

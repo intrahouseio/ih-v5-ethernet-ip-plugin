@@ -43,6 +43,12 @@
       "default": 100
     },
     {
+      "prop": "connections",
+      "title": "Number of connections",
+      "type": "number",
+      "default": 5
+    },
+    {
       "prop": "restarttime",
       "title": "$Unit_Restarttime",
       "type": "number",
