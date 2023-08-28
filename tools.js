@@ -1,7 +1,7 @@
 /**
  * Функции разбора и формирования данных
  */
-const plugin = require('ih-plugin-api')();
+//const plugin = require('ih-plugin-api')();
 const util = require('util');
 const { Tag, TagGroup, Structure } = require('st-ethernet-ip');
 
@@ -9,8 +9,10 @@ exports.getPolls = getPolls;
 exports.getPollArray = getPollArray;
 
 let tagNameArray = [];
+this.plugin = {};
 
-async function getPolls(channels, params, tagList, firstStart) {
+async function getPolls(channels, params, tagList, firstStart, plugin) {
+    this.plugin = plugin;
     const grouparr = [];
     let group = {};
     let tagObj = {};
@@ -26,7 +28,7 @@ async function getPolls(channels, params, tagList, firstStart) {
         maxreadtags = channels.length;
     }
     if (firstStart) {
-        plugin.log("Get Taglist from PLC", 1);
+        this.plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
     }
 
@@ -73,12 +75,17 @@ async function getPolls(channels, params, tagList, firstStart) {
                     }
                     tag.itemid = item.id;
                     if (tagscnt > params.structNum) {
-                        taggroupArr.push(taggroup);
-                        tagscnt = 0;
-                        taggroup = new TagGroup();
+                      taggroupArr.push(taggroup);
+                      tagscnt = 0;
+                      taggroup = new TagGroup();
                     }
                 })
-
+                  if (taggroup.length > 0) {
+                    taggroupArr.push(taggroup);
+                    tagscnt = 0;
+                    taggroup = new TagGroup(); 
+                  }
+                 
             } else {
                 if (groupchannels[key].type == 'STRUCT') {
                     let tag = {};
@@ -124,16 +131,16 @@ async function getPolls(channels, params, tagList, firstStart) {
 
                     });
                 }
-                if (tagscnt > params.structNum) {
+                if (taggroup.length > 0) {
                     taggroupArr.push(taggroup);
                     tagscnt = 0;
                     taggroup = new TagGroup();
                 }
-
             }
+             
         })
-
-        if (upsertarr.length > 0) plugin.send({ type: "upsertChannels", data: upsertarr });
+        
+        if (upsertarr.length > 0) this.plugin.send({ type: "upsertChannels", data: upsertarr });
         group.taggroupArr = taggroupArr;
         group.tagObj = tagObj;
         group.tagArr = tagArr;
@@ -145,7 +152,6 @@ async function getPolls(channels, params, tagList, firstStart) {
         tagObj = {};
         group = {};
     }
-    
     return grouparr
 
 }
@@ -257,7 +263,7 @@ function fromTemplate(tagList, parentName, code, program) {
                 }
             }
         } catch (e) {
-            plugin.log(' item.type.structure ' + util.inspect(item) + util.inspect(e), 1);
+            this.plugin.log(' item.type.structure ' + util.inspect(item) + util.inspect(e), 1);
         }
     }
 }

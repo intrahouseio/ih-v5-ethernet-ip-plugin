@@ -7,7 +7,6 @@
   "validator": {
     "main": {
       "address": { "IPv4": true },
-      "slot": { "notempty": true },
       "pooldelay": { "notempty": true }
     }
   },

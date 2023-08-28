@@ -140,10 +140,11 @@ class Client {
 
   async read(group, allowSendNext) {
     let res = [];
+    let j;
     try {
-      for(let i=0; i<group.taggroupArr.length; i++) {
-        await this.PLC.readTagGroup(group.taggroupArr[i]);
-        group.taggroupArr[i].forEach(tag => {
+      for(j=0; j<group.taggroupArr.length; j++) {
+        await this.PLC.readTagGroup(group.taggroupArr[j]);
+        group.taggroupArr[j].forEach(tag => {
           res.push(...this.parseTagValue(tag, group));
         });
       }
@@ -168,7 +169,8 @@ class Client {
             res.push(...this.parseTagValue(tag, group));
           } catch (e) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
-            this.polls.taggroup.remove(tag);
+            this.polls.taggroupArr[j].remove(tag);
+            
             if (tag.itemid) {
               remarr.push({ id: tag.itemid });
             } else {

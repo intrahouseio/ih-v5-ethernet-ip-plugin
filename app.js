@@ -33,7 +33,7 @@ module.exports = async function (plugin) {
     plugin.exit(8, 'Failed to connect!');
   }
 
-  allPolls = await tools.getPolls(channels, params, tagList, true);
+  allPolls = await tools.getPolls(channels, params, tagList, true, plugin);
 
   for (let i = 1; i <= allPolls.length; i++) {
     try {
