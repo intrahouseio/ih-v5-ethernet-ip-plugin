@@ -29,6 +29,11 @@ class Client {
       if (this.isObject(obj[key])) {
         name = parentname == '' || parentname == undefined ? key : parentname + '.' + key;
         this.obj2arr(obj[key], name);
+      } else if (Array.isArray(obj[key])) {
+        obj[key].forEach((item, index) => {
+          name = parentname == '' || parentname == undefined ? key : parentname + '.' + key + '['+index+']';
+          this.obj2arr(item, name);
+        })
       } else {
         this.objArray.push({ chan: parentname + '.' + key, value: obj[key] })
       }
@@ -93,7 +98,7 @@ class Client {
               value = item.value & (1 << ref.offset) ? 1 : 0;
             }
             if (this.chanValues[ref.id] != value) {
-              res.push({ id: ref.id, value , title: ref.title});
+              res.push({ id: ref.id, value , title: ref.title, chstatus:0});
               this.chanValues[ref.id] = value;
             }
           })
@@ -115,7 +120,7 @@ class Client {
             value = tag.value[ref.index] & (1 << ref.offset) ? 1 : 0;
           }
           if (this.chanValues[ref.id] != value) {
-            res.push({ id: ref.id, value, title:ref.title });
+            res.push({ id: ref.id, value, title:ref.title, chstatus:0 });
             this.chanValues[ref.id] = value;
           }
         })
@@ -124,14 +129,14 @@ class Client {
     } else if (typeof tag.value === 'boolean') {
       value = tag.value == false ? 0 : 1;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus:0 });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
       //Value Tag
     } else {
       value = tag.value;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus:0 });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
     }
@@ -180,7 +185,7 @@ class Client {
           }
         }
         if (res.length > 0) this.plugin.sendData(res);
-        this.plugin.send({ type: 'removeChannels', data: remarr });
+        //this.plugin.send({ type: 'removeChannels', data: remarr });
       }
     }
     await sleep(this.params.polldelay || 1);
