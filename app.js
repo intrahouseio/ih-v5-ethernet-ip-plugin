@@ -23,12 +23,14 @@ module.exports = async function (plugin) {
   const clientArr = [];
 
   let firstClient = null;
+  let firstClientStatus = "";
   try {
     let firstparams = params;
     firstClient = new Client(plugin, firstparams, 0);
-    await firstClient.connect();
+    firstClientStatus = await firstClient.connect();
     await firstClient.PLC.getControllerTagList(tagList);
-    clientArr.push(firstClient);
+    firstClientStatus = await firstClient.PLC.disconnect();
+    plugin.log("Client 0 " + firstClientStatus, 2);
   } catch (err) {
     plugin.exit(8, 'Failed to connect!');
   }
@@ -40,7 +42,7 @@ module.exports = async function (plugin) {
       let nextClient = new Client(plugin, params, i);
       clientArr[i] = nextClient;
       await nextClient.connect();
-      nextClient.setPolls(allPolls[i - 1]);
+      nextClient.setPolls(allPolls[i-1]);
       nextClient.sendNext();
 
     } catch (e) {
@@ -61,7 +63,7 @@ module.exports = async function (plugin) {
         nodetype: item.nodetype
       });
     });
-    await firstClient.writeGroup(toWrite);
+    await clientArr[1].writeGroup(toWrite);
     toWrite = [];
 
   });
@@ -72,18 +74,18 @@ module.exports = async function (plugin) {
     for (let i = 1; i <= allPolls.length; i++) {
       try {
         if (clientArr[i] != undefined) {
-          clientArr[i].setPolls(allPolls[i - 1]);
+          clientArr[i].setPolls(allPolls[i-1]);
         } else {
           let nextClient = new Client(plugin, params, i);
           clientArr[i] = nextClient;
           await nextClient.connect();
-          nextClient.setPolls(allPolls[i - 1]);
+          nextClient.setPolls(allPolls[i-1]);
           nextClient.sendNext();
           plugin.log("Client ID " + i, 1);
         }
 
       } catch (e) {
-        plugin.log('Client ' + i + ' error: ' + util.inspect(e));
+        plugin.log('Client ' + i + ' error: ' + util.inspect(e), 1);
       }
     }
   });
@@ -106,15 +108,19 @@ module.exports = async function (plugin) {
 
   // --- События плагина ---
   // Сканирование
-  plugin.onScan((scanObj) => {
+  plugin.onScan(async (scanObj) => {
     if (!scanObj) return;
     if (scanObj.stop) {
       //
+      
+      firstClientStatus = await firstClient.PLC.disconnect();
+      plugin.log("Client 0 " + firstClientStatus, 2);
     } else {
       // Сканировать через первый сокет?
-      if (firstClient && firstClient.PLC) {
-        scanner.request(firstClient.PLC, scanObj.uuid);
+      if (firstClientStatus == "disconnected") {
+        firstClientStatus = await firstClient.connect();
       }
+      scanner.request(firstClient.PLC, scanObj.uuid);
     }
   });
 

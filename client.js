@@ -46,10 +46,10 @@ class Client {
       this.PLC.connect(address, slot)
         .then(() => {
           this.plugin.log('Client ' + this.idx + ' connected to ' + util.inspect(this.params.address), 1);
-          resolve();
+          resolve("connected");
         })
         .catch(err => {
-          this.plugin.log('Client ' + this.idx + ' An error has occured : ' + util.inspect(err));
+          this.plugin.log('Client ' + this.idx + ' An error has occured : ' + util.inspect(err), 1);
           this.plugin.exit();
           reject(err);
         });
@@ -61,10 +61,18 @@ class Client {
     this.chanValues = {};
   }
 
+  setWrite(polls) {
+    this.toWrite = polls
+  }
+
   async sendNext(single) {
     let isOnce = false;
     if (typeof single !== undefined && single === true) {
       isOnce = true;
+    }
+
+    if (this.toWrite.length >0) {
+      await this.writeGroup()
     }
     const item = this.polls;
 
@@ -79,6 +87,7 @@ class Client {
   }
 
   parseTagValue(tag, group) {
+    //this.plugin.log("Read " + util.inspect(tag.value))
     let value;
     let res = [];
     //Value Object
@@ -224,6 +233,7 @@ class Client {
     try {
       await this.PLC.readTagGroup(group);
       await this.PLC.writeTagGroup(group);
+      this.toWrite = [];
     } catch (e) {
       this.plugin.log('Write error: ' + util.inspect(e), 1);
     }
