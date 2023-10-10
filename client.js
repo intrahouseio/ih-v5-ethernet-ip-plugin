@@ -1,6 +1,6 @@
 
 const util = require("util");
-const { Controller, Tag, TagGroup } = require('st-ethernet-ip');
+const { Controller, Tag, TagGroup, EthernetIP } = require('st-ethernet-ip');
 
 const tools = require('./tools');
 
@@ -62,7 +62,7 @@ class Client {
   }
 
   setWrite(polls) {
-    this.toWrite = polls
+    this.toWrite.push(...polls);
   }
 
   async sendNext(single) {
@@ -72,7 +72,7 @@ class Client {
     }
 
     if (this.toWrite.length >0) {
-      await this.writeGroup()
+      await this.writeGroup();
     }
     const item = this.polls;
 
@@ -216,22 +216,22 @@ class Client {
     }
   }
 
-  async writeGroup(data) {
-    this.plugin.log('Data ' + util.inspect(data), 2);
+  async writeGroup() {
+    this.plugin.log('Write Data ' + util.inspect(this.toWrite), 2);
     const group = new TagGroup();
     let tag = {};
-    for (let i = 0; i < data.length; i++) {
-      if (data[i].nodename != undefined) {
-        if (data[i].nodetype == "ARRAY") tag = new Tag(data[i].nodename + data[i].chan);
-        if (data[i].nodetype == "STRUCT") tag = new Tag(data[i].nodename + '.' + data[i].chan);
+    for (let i = 0; i < this.toWrite.length; i++) {
+      if (this.toWrite[i].nodename != undefined) {
+        if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+        if (this.toWrite[i].nodetype == "STRUCT") tag = new Tag(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       } else {
-        tag = new Tag(data[i].chan);
+        tag = new Tag(this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       } 
-      tag.value = data[i].value;
+      tag.value = this.toWrite[i].value;
       group.add(tag);
     }
     try {
-      await this.PLC.readTagGroup(group);
+      //await this.PLC.readTagGroup(group);
       await this.PLC.writeTagGroup(group);
       this.toWrite = [];
     } catch (e) {

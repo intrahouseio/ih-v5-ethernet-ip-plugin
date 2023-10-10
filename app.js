@@ -54,17 +54,18 @@ module.exports = async function (plugin) {
     plugin.log('ACT data=' + util.inspect(message.data), 1);
 
     if (!message.data) return;
-    message.data.forEach(item => {
+    /*message.data.forEach(item => {
       toWrite.push({
         id: item.id,
         value: item.value,
         chan: item.chan,
         nodename: item.nodename,
-        nodetype: item.nodetype
+        nodetype: item.nodetype,
+        dataType: item.dataType
       });
-    });
-    await clientArr[1].writeGroup(toWrite);
-    toWrite = [];
+    });*/
+    clientArr[1].setWrite(message.data);
+    //toWrite = [];
 
   });
 
