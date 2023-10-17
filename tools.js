@@ -39,7 +39,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
 
         //channels.sort(byorder('chan'));
         Object.keys(groupchannels).forEach(key => {
-            if (key == 'undefined') {
+            if (key == 'undefined' || key == '0') {
                 groupchannels[key].ref.forEach(item => {
                     let tag = {};
                     if (item.missing == 1 && firstStart) {
@@ -91,6 +91,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                     let tag = {};
                     tag = new Structure(key, tagList);
                     tag.parentnodefolder = groupchannels[key].parentnodefolder;
+                    tag.ref = groupchannels[key].ref;
                     taggroup.add(tag);
                     tagscnt++;
                     groupchannels[key].ref.forEach(item => {
@@ -113,6 +114,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                     let tag = {};
                     tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
                     tag.parentnodefolder = groupchannels[key].parentnodefolder;
+                    tag.ref = groupchannels[key].ref;
                     taggroup.add(tag);
                     tagscnt++;
                     groupchannels[key].ref.forEach(item => {

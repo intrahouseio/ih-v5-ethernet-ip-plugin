@@ -187,8 +187,12 @@ class Client {
             
             if (tag.itemid) {
               remarr.push({ id: tag.itemid });
+              res.push({ id: tag.itemid, chstatus: 1 });
             } else {
               remarr.push({ parentnodefolder: tag.parentnodefolder });
+              tag.ref.forEach(item => {
+                res.push({id: item.id, chstatus: 1});
+              })
             }
             
           }
@@ -221,7 +225,7 @@ class Client {
     const group = new TagGroup();
     let tag = {};
     for (let i = 0; i < this.toWrite.length; i++) {
-      if (this.toWrite[i].nodename != undefined) {
+      if (this.toWrite[i].nodename != undefined && this.toWrite[i].nodename != 0) {
         if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
         if (this.toWrite[i].nodetype == "STRUCT") tag = new Tag(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       } else {
