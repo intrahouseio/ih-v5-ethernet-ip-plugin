@@ -1,13 +1,13 @@
 
 const util = require("util");
-const { Controller, Tag, TagGroup, EthernetIP } = require('st-ethernet-ip');
+const { Controller, Tag, Structure, TagGroup, EthernetIP } = require('st-ethernet-ip');
 
 const tools = require('./tools');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 class Client {
-  constructor(plugin, params, idx) {
+  constructor(plugin, params, idx, tagList) {
     this.plugin = plugin;
     this.params = params;
     this.idx = idx;
@@ -16,6 +16,7 @@ class Client {
     this.chanValues = {};
     this.toWrite = [];
     this.objArray = [];
+    this.tagList = tagList;
 
     this.PLC = new Controller(this.params.connectedMessaging == 0 ? false : this.idx>0);
   }
@@ -221,17 +222,25 @@ class Client {
   }
 
   async writeGroup() {
-    this.plugin.log('Write Data ' + util.inspect(this.toWrite), 2);
+    //this.plugin.log('Write Data ' + util.inspect(this.toWrite), 2);
     const group = new TagGroup();
     let tag = {};
     for (let i = 0; i < this.toWrite.length; i++) {
       if (this.toWrite[i].nodename != undefined && this.toWrite[i].nodename != 0) {
         if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
-        if (this.toWrite[i].nodetype == "STRUCT") tag = new Tag(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+        if (this.toWrite[i].nodetype == "STRUCT") {
+          if (this.toWrite[i].dataType == "STRING") {
+              tag = new Structure(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, this.tagList);
+          } else {
+              tag = new Tag(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+          }
+        }
+      } else if (this.toWrite[i].dataType == 'STRING') {
+        tag = new Structure(this.toWrite[i].chan, this.tagList);
       } else {
         tag = new Tag(this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       } 
-      tag.value = this.toWrite[i].value;
+      tag.value = this.toWrite[i].value;      
       group.add(tag);
     }
     try {

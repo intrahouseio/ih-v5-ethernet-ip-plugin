@@ -133,7 +133,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
 
                     });
                 }
-                if (taggroup.length > 0) {
+                if (taggroup.length > params.structNum) {
                     taggroupArr.push(taggroup);
                     tagscnt = 0;
                     taggroup = new TagGroup();
@@ -141,6 +141,9 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
             }
              
         })
+        if (taggroup.length > 0) {
+            taggroupArr.push(taggroup);
+        }
         
         if (upsertarr.length > 0) this.plugin.send({ type: "upsertChannels", data: upsertarr });
         group.taggroupArr = taggroupArr;
@@ -149,6 +152,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
         group.tagAlone = tagAlone;
         grouparr.push(group);
         taggroup = new TagGroup();
+        taggroupArr = [];
         tagAlone = {};
         tagArr = {};
         tagObj = {};

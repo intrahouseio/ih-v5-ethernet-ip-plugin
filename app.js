@@ -39,7 +39,7 @@ module.exports = async function (plugin) {
 
   for (let i = 1; i <= allPolls.length; i++) {
     try {
-      let nextClient = new Client(plugin, params, i);
+      let nextClient = new Client(plugin, params, i, tagList);
       clientArr[i] = nextClient;
       await nextClient.connect();
       nextClient.setPolls(allPolls[i-1]);
