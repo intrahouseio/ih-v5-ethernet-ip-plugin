@@ -7,7 +7,7 @@ const tools = require('./tools');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 class Client {
-  constructor(plugin, params, idx, tagList) {
+  constructor(plugin, params, idx, tagList, writeTagObj) {
     this.plugin = plugin;
     this.params = params;
     this.idx = idx;
@@ -17,6 +17,7 @@ class Client {
     this.toWrite = [];
     this.objArray = [];
     this.tagList = tagList;
+    this.writeTagObj = writeTagObj;
 
     this.PLC = new Controller(this.params.connectedMessaging == 0 ? false : this.idx>0);
   }
@@ -42,6 +43,7 @@ class Client {
   }
 
   connect() {
+    
     return new Promise((resolve, reject) => {
       const { address, slot } = this.params;
       this.PLC.connect(address, slot)
@@ -88,11 +90,12 @@ class Client {
   }
 
   parseTagValue(tag, group) {
-    //this.plugin.log("Read " + util.inspect(tag.value))
+    //this.plugin.log("Read " + util.inspect(tag, null, 4))
     let value;
     let res = [];
     //Value Object
     if (this.isObject(tag.value)) {
+      this.writeTagObj[tag.state.tag.name] = tag;
       this.objArray = [];
       this.obj2arr(tag.value, tag.name);
       this.objArray.forEach(item => {
@@ -158,10 +161,12 @@ class Client {
     let j;
     try {
       for(j=0; j<group.taggroupArr.length; j++) {
+        //this.plugin.log("Start read " + j + " length " + group.taggroupArr[j].length + " idx " + this.idx);
         await this.PLC.readTagGroup(group.taggroupArr[j]);
         group.taggroupArr[j].forEach(tag => {
           res.push(...this.parseTagValue(tag, group));
         });
+        //this.plugin.log("Stop read " + j + " idx " + this.idx);
       }
       
       if (res.length > 0) this.plugin.sendData(res);
@@ -211,7 +216,7 @@ class Client {
   }
 
   async write(data) {
-    this.plugin.log('Data ' + util.inspect(data), 2);
+    //this.plugin.log('Data ' + util.inspect(data), 2);
     this.chanValues[data.chan].tag.value = data.value;
     try {
       await this.PLC.writeTag(this.chanValues[data.chan].tag);
@@ -222,29 +227,55 @@ class Client {
   }
 
   async writeGroup() {
-    //this.plugin.log('Write Data ' + util.inspect(this.toWrite), 2);
-    const group = new TagGroup();
+    //this.plugin.log('Taglist ' + util.inspect(this.tagList), 2);
+    let group = new TagGroup();
     let tag = {};
+    let taggroupArr = [];
+    let arrCnt = 0;
     for (let i = 0; i < this.toWrite.length; i++) {
       if (this.toWrite[i].nodename != undefined && this.toWrite[i].nodename != 0) {
         if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
         if (this.toWrite[i].nodetype == "STRUCT") {
-          if (this.toWrite[i].dataType == "STRING") {
-              tag = new Structure(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, this.tagList);
-          } else {
-              tag = new Tag(this.toWrite[i].nodename + '.' + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
-          }
+          tag = this.writeTagObj[this.toWrite[i].nodename];
         }
       } else if (this.toWrite[i].dataType == 'STRING') {
         tag = new Structure(this.toWrite[i].chan, this.tagList);
       } else {
         tag = new Tag(this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       } 
-      tag.value = this.toWrite[i].value;      
+      
+      if (this.toWrite[i].nodetype == "STRUCT") {
+        try {
+          if (this.toWrite[i].dataType == "STRING") {
+            eval('tag.value.'+this.toWrite[i].chan+'="'+this.toWrite[i].value+'"')
+          } else {
+            eval('tag.value.'+this.toWrite[i].chan+'='+this.toWrite[i].value);
+          }
+          
+        } catch (e) {
+          this.plugin.log("Error " + util.inspect(e))
+        }
+      } else {
+        tag.value = this.toWrite[i].value;
+      }
+     
+            
       group.add(tag);
+      /*arrCnt ++;
+      if (arrCnt>=200) {
+        taggroupArr.push(group);
+        group = new TagGroup();
+        arrCnt = 0;
+      }*/
     }
+    //if (arrCnt > 0) taggroupArr.push(group);
+    
     try {
       //await this.PLC.readTagGroup(group);
+      
+      //for(let i= 0; i<taggroupArr.length; i++) {
+      //  await this.PLC.writeTagGroup(taggroupArr[i]);
+      //} 
       await this.PLC.writeTagGroup(group);
       this.toWrite = [];
     } catch (e) {
@@ -252,6 +283,7 @@ class Client {
     }
 
   }
+
 
 
 }

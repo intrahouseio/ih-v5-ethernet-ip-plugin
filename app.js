@@ -13,6 +13,7 @@ const Scanner = require("./lib/scanner");
 module.exports = async function (plugin) {
   let toWrite = [];
   let allPolls;
+  let writeTagObj = {};
   const tagList = new TagList();
   const scanner = new Scanner(plugin);
 
@@ -36,10 +37,9 @@ module.exports = async function (plugin) {
   }
 
   allPolls = await tools.getPolls(channels, params, tagList, true, plugin);
-
   for (let i = 1; i <= allPolls.length; i++) {
     try {
-      let nextClient = new Client(plugin, params, i, tagList);
+      let nextClient = new Client(plugin, params, i, tagList, writeTagObj);
       clientArr[i] = nextClient;
       await nextClient.connect();
       nextClient.setPolls(allPolls[i-1]);

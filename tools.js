@@ -74,7 +74,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                         }
                     }
                     tag.itemid = item.id;
-                    if (tagscnt > params.structNum) {
+                    if (tagscnt >= 100) {
                       taggroupArr.push(taggroup);
                       tagscnt = 0;
                       taggroup = new TagGroup();
@@ -133,7 +133,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
 
                     });
                 }
-                if (taggroup.length > params.structNum) {
+                if (taggroup.length >= params.structNum) {
                     taggroupArr.push(taggroup);
                     tagscnt = 0;
                     taggroup = new TagGroup();
