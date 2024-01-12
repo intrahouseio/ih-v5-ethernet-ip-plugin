@@ -11,7 +11,7 @@
     }
   },
 
-  "share_node_folder_fields":["nodename", "nodetype", "nodesize"],
+  "share_node_folder_fields":["nodename", "nodetype", "nodesize", "nodeValueType"],
 
   "channel_folder_popup": {
     "add": [

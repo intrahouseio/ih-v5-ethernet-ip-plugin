@@ -1,39 +1,62 @@
 {
-    "grid": [
-      { "id": "p1", "xs": 6, "class": "main", "table": "devhard" },
-      { "id": "p2", "xs": 6, "class": "main", "table": "devhard", "hide":"data.p1.foldertype != 'node'" }
-      
-    ],
-    "spacing": 4,
-  
-    "p1": [
-      { "prop": "chan", "title": "$Name", "type": "input" },
-      { "prop": "txt", "title": "$Comment", "type": "textarea" },
-      { "prop": "foldertype", "title": "", "type": "text", "hide":"1==1" }
-    ],
-  
-    "p2": [
-      { "prop": "nodename", "title": "$nodename", "type": "input" },
-      {
-        "prop": "nodetype",
-        "title": "$nodetype",
-        "type": "droplist",
-        "data": [
-          {
-            "id": "STRUCT",
-            "title": "STRUCT"
-          },
-          {
-            "id": "ARRAY",
-            "title": "ARRAY"
-          }
-        ],
-        "default": "STRUCT"
-      },
-  
-      { "prop": "nodesize", "title": "$nodesize", "type": "input", "default": 0, "hide" : "data.p2.nodetype.id != 'ARRAY'" }
-    ]
-  
+  "grid": [
+    { "id": "p1", "xs": 6, "class": "main", "table": "devhard" },
+    { "id": "p2", "xs": 6, "class": "main", "table": "devhard", "hide":"data.p1.foldertype != 'node'" }
     
-   
+  ],
+  "spacing": 4,
+
+  "p1": [
+    { "prop": "chan", "title": "$Name", "type": "input" },
+    { "prop": "txt", "title": "$Comment", "type": "textarea" },
+    { "prop": "foldertype", "title": "", "type": "text", "hide":"1==1" }
+  ],
+
+  "p2": [
+    { "prop": "nodename", "title": "$nodename", "type": "input" },
+    {
+      "prop": "nodetype",
+      "title": "$nodetype",
+      "type": "droplist",
+      "data": [
+        {
+          "id": "STRUCT",
+          "title": "STRUCT"
+        },
+        {
+          "id": "ARRAY",
+          "title": "ARRAY"
+        }
+      ],
+      "default": "STRUCT"
+    },
+
+    { "prop": "nodesize", "title": "$nodesize", "type": "input", "default": 0, "hide" : "data.p2.nodetype.id != 'ARRAY'" },
+    {
+    "prop": "nodeValueType",
+    "title": "$nodeValueType",
+    "type": "droplist",
+    "data": [
+      { "id": "BOOL", "title": "BOOL" },
+      { "id": "SINT", "title": "SINT" },
+      { "id": "INT", "title": "INT" },
+      { "id": "DINT", "title": "DINT" },
+      { "id": "LINT", "title": "LINT" },
+      { "id": "USINT", "title": "USINT" },
+      { "id": "UINT", "title": "UINT" },
+      { "id": "REAL", "title": "REAL" },
+      { "id": "LREAL", "title": "LREAL" },
+      { "id": "STRING", "title": "STRING" },
+      { "id": "WORD", "title": "WORD" },
+      { "id": "DWORD", "title": "DWORD" },
+      { "id": "LWORD", "title": "LWORD" }
+    ],
+
+    "default": { "id": "INT", "title": "INT" },
+    "hide" : "data.p2.nodetype.id != 'ARRAY'"
   }
+  ]
+
+  
+ 
+}

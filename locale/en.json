@@ -11,6 +11,7 @@
     "devpropname": "Property to bind",
     "nodename": "Node Name",
     "nodetype": "Node Type",
+    "nodeValueType": "Array Value Type",
     "nodesize": "Node Size",
     "chan": "Tag Name",
     "dataType": "Tag Datatype",

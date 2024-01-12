@@ -9,9 +9,12 @@ exports.getPolls = getPolls;
 exports.getPollArray = getPollArray;
 
 let tagNameArray = [];
+let tagSize = {};
+let allowStruct = [];
 this.plugin = {};
 
 async function getPolls(channels, params, tagList, firstStart, plugin) {
+    this.tagList = tagList;
     this.plugin = plugin;
     const grouparr = [];
     let group = {};
@@ -21,6 +24,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
     let upsertarr = [];
     let taggroup = new TagGroup();
     let tagscnt = 0;
+    let taggroupsize = 0;
     let taggroupArr = [];
     if (channels.length > params.connections) {
         maxreadtags = Math.ceil(channels.length / params.connections);
@@ -28,19 +32,18 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
         maxreadtags = channels.length;
     }
     if (firstStart) {
-        this.plugin.log("Get Taglist from PLC", 1);
+        plugin.log("Get Taglist from PLC", 1);
         scanning(tagList);
     }
 
     channels.sort(byorder('nodename'));
     while (channels.length > 0) {
-        let chunk = channels.splice(0, maxreadtags);
-        const groupchannels = groupBy(chunk, 'nodename');
-
+        let chunk = channels.splice(0, maxreadtags);  
         //channels.sort(byorder('chan'));
-        Object.keys(groupchannels).forEach(key => {
-            if (key == 'undefined' || key == '0') {
-                groupchannels[key].ref.forEach(item => {
+        const groupchannels = groupBy(chunk, 'nodename', plugin);
+        groupchannels.forEach(key => {
+            if (key.name == undefined || key.name == '0') {
+                key.ref.forEach(item => {
                     let tag = {};
                     if (item.missing == 1 && firstStart) {
                         tagNameArray.forEach(tagname => {
@@ -87,14 +90,24 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                   }
                  
             } else {
-                if (groupchannels[key].type == 'STRUCT') {
+                if (key.type == 'STRUCT') {
                     let tag = {};
-                    tag = new Structure(key, tagList);
-                    tag.parentnodefolder = groupchannels[key].parentnodefolder;
-                    tag.ref = groupchannels[key].ref;
-                    taggroup.add(tag);
-                    tagscnt++;
-                    groupchannels[key].ref.forEach(item => {
+                    tag = new Structure(key.name, this.tagList);
+                    tag.parentnodefolder = key.parentnodefolder;
+                    tag.ref = key.ref;
+                    tag.datatype = key.type;
+                    if (taggroupsize + key.size >= 5000 && taggroupsize >0) {
+                      taggroupArr.push(taggroup);
+                      taggroupsize = 0;
+                      taggroup = new TagGroup();
+                    } 
+                      taggroup.add(tag);
+                      if (taggroup.groupName == undefined) taggroup.groupName = [];
+                      taggroup.groupName.push(key.name + " " +key.size);
+                      taggroupsize += key.size;
+                    
+                      
+                    key.ref.forEach(item => {
                         let memArr = item.chan.split(".");
                         const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
                         if (isBitIndex) {
@@ -110,39 +123,47 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                     })
                 }
 
-                if (groupchannels[key].type == 'ARRAY') {
+                if (key.type == 'ARRAY') {
                     let tag = {};
-                    tag = new Tag(key, null, null, 0, 1, groupchannels[key].size);
-                    tag.parentnodefolder = groupchannels[key].parentnodefolder;
-                    tag.ref = groupchannels[key].ref;
+                    if (key.nodeValueType == "STRING") {
+                      tag = new Structure(key.name, tagList, null, null, 0, 1, key.size);
+                    } else {
+                      tag = new Tag(key.name, null, null, 0, 1, key.size);
+                    }
+                    tag.parentnodefolder = key.parentnodefolder;
+                    tag.ref = key.ref;
+                    tag.datatype = key.type;
+                    if (taggroup.groupName == undefined) taggroup.groupName = [];
+                    taggroup.groupName.push(key.name + " " +key.size);
+                    
                     taggroup.add(tag);
-                    tagscnt++;
-                    groupchannels[key].ref.forEach(item => {
+                    taggroupArr.push(taggroup);
+                    taggroupsize = 0;
+                    taggroup = new TagGroup();
+                    key.ref.forEach(item => {
                         const index = item.chan.split(/[.[\],]/).filter(segment => segment.length > 0);
                         let memArr = item.chan.split(".");
                         const isBitIndex = (memArr.length > 1) & (memArr[memArr.length - 1] % 1 === 0);
                         if (isBitIndex) {
                             let offset = 0;
                             offset = parseInt(memArr[memArr.length - 1]);
-                            if (!tagArr[key]) tagArr[key] = [];
-                            tagArr[key].push({ index: Number(index[0]), id: item.id, offset, title: key + "[" + index[0] + "]" + "." + offset });
+                            if (!tagArr[key.name]) tagArr[key.name] = [];
+                            tagArr[key.name].push({ index: Number(index[0]), id: item.id, offset, title: key.name + "[" + index[0] + "]" + "." + offset });
                         } else {
-                            if (!tagArr[key]) tagArr[key] = [];
-                            tagArr[key].push({ index: Number(index), id: item.id, title: key + "[" + index + "]" });
+                            if (!tagArr[key.name]) tagArr[key.name] = [];
+                            tagArr[key.name].push({ index: Number(index), id: item.id, title: key.name + "[" + index + "]" });
                         }
 
                     });
                 }
-                if (taggroup.length >= params.structNum) {
-                    taggroupArr.push(taggroup);
-                    tagscnt = 0;
-                    taggroup = new TagGroup();
-                }
+                
             }
              
         })
-        if (taggroup.length > 0) {
+        if (taggroupsize > 0) {
             taggroupArr.push(taggroup);
+            taggroup = new TagGroup();
+            taggroupsize = 0;
         }
         
         if (upsertarr.length > 0) this.plugin.send({ type: "upsertChannels", data: upsertarr });
@@ -158,6 +179,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
         tagObj = {};
         group = {};
     }
+    //plugin.log("grouparr " + util.inspect(grouparr));
     return grouparr
 
 }
@@ -172,22 +194,52 @@ function getPollArray(polls) {
     return arr
 }
 
-function groupBy(objectArray, property) {
-    return objectArray.reduce(function (acc, obj) {
-        let key = obj[property];
+function groupBy(objectArray, property, plugin) {
+    let acc = {};
+    let arr = [];
+    objectArray.forEach(obj => {   
+        if (obj.nodetype == "STRUCT") checkSize(obj, property, plugin);
+        let key = obj[property];  
         if (!acc[key]) {
             acc[key] = {};
+            acc[key].name = key;
+            acc[key].nodeValueType = obj.nodeValueType;
             acc[key].type = obj.nodetype;
-            acc[key].size = obj.nodesize;
+            acc[key].size = obj.nodetype == "STRUCT" ? tagSize[obj.structName] : obj.nodesize;
             acc[key].parentnodefolder = obj.parentnodefolder;
             acc[key].missing = obj.missing;
             acc[key].ref = [];
         }
         acc[key].ref.push(obj);
-        return acc;
-    }, {});
+    })
+    Object.keys(acc).forEach(item => {
+      arr.push(acc[item]);
+    })
+    arr.sort(byorder('size'));
+    return arr
 }
 
+function checkSize(obj, property, plugin) {
+  let structName = obj[property];
+  if (structName.includes('[')) {
+    structName = structName.substring(0, structName.indexOf('['));
+  }
+  if (tagSize[structName] > 100000) {
+        const index = obj.chan.indexOf('.');  
+        obj[property] = obj[property] + '.' + obj.chan.substring(0, index);
+        obj.chan = obj.chan.substring(index+1);
+        structName = obj[property];
+        if (structName.includes('[')) {
+          structName = structName.substring(0, structName.indexOf('['));
+        }
+        obj.structName = structName;
+        if (tagSize[structName] > 100000) {
+          checkSize(obj, property, plugin);
+        }
+  } else {
+    obj.structName = structName;
+  }
+}
 
 function byorder(ordernames, direction, parsingInt) {
     var arrForSort = [];
@@ -241,6 +293,7 @@ function byorder(ordernames, direction, parsingInt) {
 function scanning(tagList) {
     tagList.tags.forEach(tag => {
         if (tag.type && tag.type.structure && tag.type.typeName !== 'STRING') {
+              tagSize[tag.name] = tagList.templates[tag.type.code]._attributes.StructureSize;
             fromTemplate(tagList, tag.name, tag.type.code, tag.program);
         } else {
             if (tag.type.typeName) {
@@ -256,12 +309,13 @@ function fromTemplate(tagList, parentName, code, program) {
     if (!tagList.templates[code]._members) return;
     const members = tagList.templates[code]._members;
 
-    for (let i = 0; i < members.length; i++) {
+    for (let i = 0; i < members.length; i++) {        
         const item = members[i];
         try {
             let name = parentName + '.' + item.name;
             if (item.type) {
-                if (item.type.structure && item.type.string !== 'STRING') {
+                if (item.type.structure && item.type.string !== 'STRING') {    
+                      tagSize[name] = tagList.templates[item.type.code]._attributes.StructureSize; 
                     fromTemplate(tagList, name, String(item.type.code));
                 } else {
                     const tagName = getTagName(name, program);

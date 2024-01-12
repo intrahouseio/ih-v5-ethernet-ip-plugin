@@ -257,25 +257,11 @@ class Client {
         }
       } else {
         tag.value = this.toWrite[i].value;
-      }
-     
-            
+      }        
       group.add(tag);
-      /*arrCnt ++;
-      if (arrCnt>=200) {
-        taggroupArr.push(group);
-        group = new TagGroup();
-        arrCnt = 0;
-      }*/
     }
-    //if (arrCnt > 0) taggroupArr.push(group);
     
     try {
-      //await this.PLC.readTagGroup(group);
-      
-      //for(let i= 0; i<taggroupArr.length; i++) {
-      //  await this.PLC.writeTagGroup(taggroupArr[i]);
-      //} 
       await this.PLC.writeTagGroup(group);
       this.toWrite = [];
     } catch (e) {

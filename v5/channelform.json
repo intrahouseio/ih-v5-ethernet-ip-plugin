@@ -55,7 +55,7 @@
         { "id": "LWORD", "title": "LWORD" }
       ],
 
-      "default": "INT"
+      "default": { "id": "INT", "title": "INT" }
     }
   ],
 
