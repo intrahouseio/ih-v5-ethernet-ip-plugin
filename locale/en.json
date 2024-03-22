@@ -12,7 +12,7 @@
     "nodename": "Node Name",
     "nodetype": "Node Type",
     "nodeValueType": "Array Value Type",
-    "nodesize": "Node Size",
+    "nodesize": "Array size",
     "chan": "Tag Name",
     "dataType": "Tag Datatype",
     "polltimefctr" : "Polling time factor",

@@ -32,11 +32,16 @@ module.exports = async function (plugin) {
     await firstClient.PLC.getControllerTagList(tagList);
     firstClientStatus = await firstClient.PLC.disconnect();
     plugin.log("Client 0 " + firstClientStatus, 2);
+    
   } catch (err) {
     plugin.exit(8, 'Failed to connect!');
   }
-
-  allPolls = await tools.getPolls(channels, params, tagList, true, plugin);
+  try {
+    allPolls = await tools.getPolls(channels, params, tagList, true, plugin);
+  } catch (e) {
+    plugin.log('error: ' + util.inspect(e), 1);
+  }
+  
   for (let i = 1; i <= allPolls.length; i++) {
     try {
       let nextClient = new Client(plugin, params, i, tagList, writeTagObj);

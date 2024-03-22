@@ -19,7 +19,7 @@ class Client {
     this.tagList = tagList;
     this.writeTagObj = writeTagObj;
 
-    this.PLC = new Controller(this.params.connectedMessaging == 0 ? false : this.idx>0);
+    this.PLC = new Controller(this.idx > 0);
   }
   isObject = obj => {
     return typeof obj === 'object' && obj !== null && !Array.isArray(obj)
@@ -27,23 +27,28 @@ class Client {
   //Преобразует объект в массив объектов
   obj2arr(obj, parentname) {
     let name = '';
-    Object.keys(obj).forEach(key => {
-      if (this.isObject(obj[key])) {
-        name = parentname == '' || parentname == undefined ? key : parentname + '.' + key;
-        this.obj2arr(obj[key], name);
-      } else if (Array.isArray(obj[key])) {
-        obj[key].forEach((item, index) => {
-          name = parentname == '' || parentname == undefined ? key : parentname + '.' + key + '['+index+']';
-          this.obj2arr(item, name);
-        })
-      } else {
-        this.objArray.push({ chan: parentname + '.' + key, value: obj[key] })
-      }
-    })
+    if (this.isObject(obj)) {
+      Object.keys(obj).forEach(key => {
+        if (this.isObject(obj[key])) {
+          name = parentname == '' || parentname == undefined ? key : parentname + '.' + key;
+          this.obj2arr(obj[key], name);
+        } else if (Array.isArray(obj[key])) {
+          obj[key].forEach((item, index) => {
+            name = parentname == '' || parentname == undefined ? key : parentname + '.' + key + '[' + index + ']';
+            this.obj2arr(item, name);
+          })
+        } else {
+          this.objArray.push({ chan: parentname + '.' + key, value: obj[key] })
+        }
+      })
+    } else {
+      this.objArray.push({ chan: parentname, value: obj })
+    }
+
   }
 
   connect() {
-    
+
     return new Promise((resolve, reject) => {
       const { address, slot } = this.params;
       this.PLC.connect(address, slot)
@@ -74,7 +79,7 @@ class Client {
       isOnce = true;
     }
 
-    if (this.toWrite.length >0) {
+    if (this.toWrite.length > 0) {
       await this.writeGroup();
     }
     const item = this.polls;
@@ -105,13 +110,13 @@ class Client {
               if (typeof item.value === 'boolean') {
                 value = item.value == false ? 0 : 1;
               } else {
-                value = item.value;     
+                value = item.value;
               }
             } else {
               value = item.value & (1 << ref.offset) ? 1 : 0;
             }
             if (this.chanValues[ref.id] != value) {
-              res.push({ id: ref.id, value , title: ref.title, chstatus:0});
+              res.push({ id: ref.id, value, title: ref.title, chstatus: 0 });
               this.chanValues[ref.id] = value;
             }
           })
@@ -126,14 +131,14 @@ class Client {
               if (typeof tag.value[ref.index] === 'boolean') {
                 value = tag.value[ref.index] == false ? 0 : 1;
               } else {
-                value = tag.value[ref.index];     
-              }  
+                value = tag.value[ref.index];
+              }
             }
           } else {
             value = tag.value[ref.index] & (1 << ref.offset) ? 1 : 0;
           }
           if (this.chanValues[ref.id] != value) {
-            res.push({ id: ref.id, value, title:ref.title, chstatus:0 });
+            res.push({ id: ref.id, value, title: ref.title, chstatus: 0 });
             this.chanValues[ref.id] = value;
           }
         })
@@ -142,14 +147,14 @@ class Client {
     } else if (typeof tag.value === 'boolean') {
       value = tag.value == false ? 0 : 1;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus:0 });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus: 0 });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
       //Value Tag
     } else {
       value = tag.value;
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus:0 });
+        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus: 0 });
         this.chanValues[group.tagAlone[tag.name]] = value;
       }
     }
@@ -160,15 +165,15 @@ class Client {
     let res = [];
     let j;
     try {
-      for(j=0; j<group.taggroupArr.length; j++) {
-        //this.plugin.log("Start read " + j + " length " + group.taggroupArr[j].length + " idx " + this.idx);
+      for (j = 0; j < group.taggroupArr.length; j++) {
+        //this.plugin.log("Start read " + j + " length " + group.taggroupArr[j].length + " idx " + this.idx, 2);
         await this.PLC.readTagGroup(group.taggroupArr[j]);
         group.taggroupArr[j].forEach(tag => {
           res.push(...this.parseTagValue(tag, group));
         });
-        //this.plugin.log("Stop read " + j + " idx " + this.idx);
+        //this.plugin.log("Stop read " + j + " idx " + this.idx, 2);
       }
-      
+
       if (res.length > 0) this.plugin.sendData(res);
     } catch (e) {
       let remarr = [];
@@ -180,7 +185,7 @@ class Client {
         group.taggroupArr.forEach(group => {
           group.forEach(item => {
             tagarr.push(item);
-          }) 
+          })
         })
         for (let i = 0; i < tagarr.length; i++) {
           const tag = tagarr[i];
@@ -190,17 +195,17 @@ class Client {
           } catch (e) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
             this.polls.taggroupArr[j].remove(tag);
-            
+
             if (tag.itemid) {
               remarr.push({ id: tag.itemid });
               res.push({ id: tag.itemid, chstatus: 1 });
             } else {
               remarr.push({ parentnodefolder: tag.parentnodefolder });
               tag.ref.forEach(item => {
-                res.push({id: item.id, chstatus: 1});
+                res.push({ id: item.id, chstatus: 1 });
               })
             }
-            
+
           }
         }
         if (res.length > 0) this.plugin.sendData(res);
@@ -236,36 +241,29 @@ class Client {
       if (this.toWrite[i].nodename != undefined && this.toWrite[i].nodename != 0) {
         if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
         if (this.toWrite[i].nodetype == "STRUCT") {
-          tag = this.writeTagObj[this.toWrite[i].nodename];
+          if (this.toWrite[i].dataType == 'STRING') {
+            tag = new Structure(this.toWrite[i].nodename + "." + this.toWrite[i].chan, this.tagList);
+          } else {
+            tag = new Tag(this.toWrite[i].nodename + "." + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+          }
         }
       } else if (this.toWrite[i].dataType == 'STRING') {
         tag = new Structure(this.toWrite[i].chan, this.tagList);
       } else {
         tag = new Tag(this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
-      } 
-      
-      if (this.toWrite[i].nodetype == "STRUCT") {
-        try {
-          if (this.toWrite[i].dataType == "STRING") {
-            eval('tag.value.'+this.toWrite[i].chan+'="'+this.toWrite[i].value+'"')
-          } else {
-            eval('tag.value.'+this.toWrite[i].chan+'='+this.toWrite[i].value);
-          }
-          
-        } catch (e) {
-          this.plugin.log("Error " + util.inspect(e))
-        }
-      } else {
-        tag.value = this.toWrite[i].value;
-      }        
+      }
+
+      tag.value = this.toWrite[i].value;
+
       group.add(tag);
     }
-    
+
     try {
       await this.PLC.writeTagGroup(group);
       this.toWrite = [];
     } catch (e) {
       this.plugin.log('Write error: ' + util.inspect(e), 1);
+      this.toWrite = [];
     }
 
   }

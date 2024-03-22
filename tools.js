@@ -33,9 +33,13 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
     }
     if (firstStart) {
         plugin.log("Get Taglist from PLC", 1);
-        scanning(tagList);
+        try {
+          scanning(tagList, plugin);
+        } catch (e) {
+          plugin.log("error " + util.inspect(e), 1);
+        }
+        
     }
-
     channels.sort(byorder('nodename'));
     while (channels.length > 0) {
         let chunk = channels.splice(0, maxreadtags);  
@@ -92,11 +96,11 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
             } else {
                 if (key.type == 'STRUCT') {
                     let tag = {};
-                    tag = new Structure(key.name, this.tagList);
+                    tag = new Structure(String(key.name), this.tagList);
                     tag.parentnodefolder = key.parentnodefolder;
                     tag.ref = key.ref;
                     tag.datatype = key.type;
-                    if (taggroupsize + key.size >= 5000 && taggroupsize >0) {
+                    if (taggroupsize + key.size >= 2500 && taggroupsize >0) {
                       taggroupArr.push(taggroup);
                       taggroupsize = 0;
                       taggroup = new TagGroup();
@@ -220,20 +224,20 @@ function groupBy(objectArray, property, plugin) {
 }
 
 function checkSize(obj, property, plugin) {
-  let structName = obj[property];
+  let structName = String(obj[property]);
   if (structName.includes('[')) {
     structName = structName.substring(0, structName.indexOf('['));
   }
-  if (tagSize[structName] > 100000) {
+  if (tagSize[structName] > 50000) {
         const index = obj.chan.indexOf('.');  
         obj[property] = obj[property] + '.' + obj.chan.substring(0, index);
         obj.chan = obj.chan.substring(index+1);
-        structName = obj[property];
+        structName = String(obj[property]);
         if (structName.includes('[')) {
           structName = structName.substring(0, structName.indexOf('['));
         }
         obj.structName = structName;
-        if (tagSize[structName] > 100000) {
+        if (tagSize[structName] > 50000) {
           checkSize(obj, property, plugin);
         }
   } else {
@@ -290,9 +294,11 @@ function byorder(ordernames, direction, parsingInt) {
     };
 }
 
-function scanning(tagList) {
+function scanning(tagList, plugin) {
+    
     tagList.tags.forEach(tag => {
-        if (tag.type && tag.type.structure && tag.type.typeName !== 'STRING') {
+        if (tag.type.structure && tag.type.typeName != 'STRING' && tag.type.typeName != 'BOOL') {
+              //plugin.log("Tagname " + tag.name);
               tagSize[tag.name] = tagList.templates[tag.type.code]._attributes.StructureSize;
             fromTemplate(tagList, tag.name, tag.type.code, tag.program);
         } else {
@@ -314,7 +320,7 @@ function fromTemplate(tagList, parentName, code, program) {
         try {
             let name = parentName + '.' + item.name;
             if (item.type) {
-                if (item.type.structure && item.type.string !== 'STRING') {    
+                if (item.type.structure && item.type.string !== 'STRING' && item.type.typeName != 'BOOL') {    
                       tagSize[name] = tagList.templates[item.type.code]._attributes.StructureSize; 
                     fromTemplate(tagList, name, String(item.type.code));
                 } else {

@@ -31,18 +31,6 @@
       "default": 200
     },
     {
-      "prop": "connectedMessaging",
-      "title": "connected Messaging",
-      "type": "cb",
-      "default": false
-    },
-    {
-      "prop": "structNum",
-      "title": "Number of structures in group",
-      "type": "number",
-      "default": 100
-    },
-    {
       "prop": "connections",
       "title": "Number of connections",
       "type": "number",
