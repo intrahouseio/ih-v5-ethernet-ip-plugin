@@ -8,18 +8,19 @@
       "title": "Channels",
       "type": "table",
       "prop": "unitchannelsTable",
+      "popupenable":false,
 
       "columns": [
-        { "prop": "chan", "title": "$chan",  "type": "link", "command":"forward",  "width": 250 },
+        { "prop": "chan", "title": "$chan",  "type": "link", "command":"forward",  "width": 250, "filter":true },
       
-        { "prop": "did", "title": "$Device",  "type": "link", "command":"forward",  "width": 250  },
-        { "prop": "prop", "title": "$DeviceProperty", "type": "text",  "width": 64 },
-        { "prop": "realtime_chan_val", "title": "$realtime_chan_val", "type": "text",  "width": 64 },
-        { "prop": "realtime_chan_ts", "title": "$realtime_chan_ts", "type": "text",  "width": 150 },
-        { "prop": "realtime_dev_val", "title": "$realtime_dev_val", "type": "text",  "width": 64 },
-        { "prop": "realtime_dev_ts", "title": "$realtime_dev_ts", "type": "text",  "width": 150 },
-        { "prop": "realtime_dev_err", "title": "$realtime_dev_err", "type": "text",  "width": 150 },
-        { "prop": "realtime_chan_chstatus", "title": "$realtime_chan_chstatus", "type": "text", "width": 150 }
+        { "prop": "did", "title": "$Device",  "type": "link", "command":"forward",  "width": 250, "filter":true  },
+        { "prop": "prop", "title": "$DeviceProperty", "type": "text",  "width": 64, "filter":true },
+        { "prop": "realtime_chan_val", "title": "$realtime_chan_val", "type": "text",  "width": 64, "filter":true },
+        { "prop": "realtime_chan_ts", "title": "$realtime_chan_ts", "type": "text",  "width": 150, "filter":true },
+        { "prop": "realtime_dev_val", "title": "$realtime_dev_val", "type": "text",  "width": 64, "filter":true },
+        { "prop": "realtime_dev_ts", "title": "$realtime_dev_ts", "type": "text",  "width": 150, "filter":true },
+        { "prop": "realtime_dev_err", "title": "$realtime_dev_err", "type": "text",  "width": 150, "filter":true },
+        { "prop": "realtime_chan_chstatus", "title": "$realtime_chan_chstatus", "type": "text", "width": 150, "filter":true }
 
 
       ]
