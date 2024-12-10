@@ -95,7 +95,7 @@ class Client {
   }
 
   parseTagValue(tag, group) {
-    //this.plugin.log("Read " + util.inspect(tag, null, 4))
+    //this.plugin.log("Read " + util.inspect(tag.value, null, 4))
     let value;
     let res = [];
     //Value Object
@@ -178,7 +178,8 @@ class Client {
     } catch (e) {
       let remarr = [];
       let tagarr = [];
-      this.plugin.log('Read error: ' + util.inspect(e), 1);
+      this.plugin.log('Read group error: ' + util.inspect(e), 1);
+      this.plugin.sendLog('Read group error: ' + util.inspect(e));
       if (e.toString().includes('TIMEOUT')) {
         await this.connect();
       } else {
@@ -192,10 +193,12 @@ class Client {
           try {
             await this.PLC.readTag(tag);
             res.push(...this.parseTagValue(tag, group));
-          } catch (e) {
+          } catch (err) {
             this.plugin.log('Removed Tag ' + tag.name, 1);
+            this.plugin.sendLog('Read tag error: ' + util.inspect(err));
+            this.plugin.sendLog('Removed Tag ' + tag.name);
             this.polls.taggroupArr[j].remove(tag);
-
+            if (this.polls.taggroupArr[j].length == 0) this.polls.taggroupArr.splice(j, 1);
             if (tag.itemid) {
               remarr.push({ id: tag.itemid });
               res.push({ id: tag.itemid, chstatus: 1 });
@@ -209,6 +212,7 @@ class Client {
           }
         }
         if (res.length > 0) this.plugin.sendData(res);
+        if (this.polls.taggroupArr.length == 0) this.plugin.exit();
         //this.plugin.send({ type: 'removeChannels', data: remarr });
       }
     }
@@ -227,41 +231,74 @@ class Client {
       await this.PLC.writeTag(this.chanValues[data.chan].tag);
       this.plugin.sendData({ id: data.id, value: data.value, chan: data.chan });
     } catch (e) {
-      this.plugin.log('Read error: ' + util.inspect(e), 1);
+      this.plugin.log('Write error: ' + util.inspect(e), 1);
     }
   }
-
+  structProgram(structName) {
+    const str = structName.slice(structName.indexOf(":") + 1, structName.length)
+    const program = str.slice(0, str.indexOf("."));
+    const name = str.slice(str.indexOf(".") + 1, str.length);
+    return {program, name}
+  }
   async writeGroup() {
-    //this.plugin.log('Taglist ' + util.inspect(this.tagList), 2);
+    
     let group = new TagGroup();
     let tag = {};
     let taggroupArr = [];
     let arrCnt = 0;
     for (let i = 0; i < this.toWrite.length; i++) {
       if (this.toWrite[i].nodename != undefined && this.toWrite[i].nodename != 0) {
-        if (this.toWrite[i].nodetype == "ARRAY") tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
-        if (this.toWrite[i].nodetype == "STRUCT") {
+        if (this.toWrite[i].nodetype == "ARRAY") {
+          const fullname = this.toWrite[i].nodename + this.toWrite[i].chan;
           if (this.toWrite[i].dataType == 'STRING') {
-            tag = new Structure(this.toWrite[i].nodename + "." + this.toWrite[i].chan, this.tagList);
+            if (fullname.includes(':')) {
+              const {program, name} = this.structProgram(fullname);
+              tag = new Structure(String(name), this.tagList, program);
+            } else {
+              tag = new Structure(String(fullname), this.tagList);
+            }
           } else {
-            tag = new Tag(this.toWrite[i].nodename + "." + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+            tag = new Tag(this.toWrite[i].nodename + this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
+          }
+        }
+        if (this.toWrite[i].nodetype == "STRUCT") {
+          const fullname = this.toWrite[i].nodename + "." + this.toWrite[i].chan;
+          if (this.toWrite[i].dataType == 'STRING') {
+            if (fullname.includes(':')) {
+                const {program, name} = this.structProgram(fullname);
+                tag = new Structure(String(name), this.tagList, program);
+            } else {
+                tag = new Structure(String(fullname), this.tagList);
+            }
+          } else {
+            tag = new Tag(fullname, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
           }
         }
       } else if (this.toWrite[i].dataType == 'STRING') {
-        tag = new Structure(this.toWrite[i].chan, this.tagList);
+          if (this.toWrite[i].chan.includes(':')) {
+              const {program, name} = this.structProgram(this.toWrite[i].chan)
+              tag = new Structure(String(name), this.tagList, program);
+          } else {
+              tag = new Structure(this.toWrite[i].chan, this.tagList);
+          }
       } else {
         tag = new Tag(this.toWrite[i].chan, null, EthernetIP.CIP.DataTypes.Types[this.toWrite[i].dataType]);
       }
-
-      tag.value = this.toWrite[i].value;
+      if (this.toWrite[i].dataType == 'STRING') {
+        tag.value = String(this.toWrite[i].value);
+      } else {
+        tag.value = this.toWrite[i].value;
+      }
+      
 
       group.add(tag);
     }
-
+    
     try {
       await this.PLC.writeTagGroup(group);
       this.toWrite = [];
     } catch (e) {
+      this.plugin.sendLog('Write error: ' + util.inspect(e));
       this.plugin.log('Write error: ' + util.inspect(e), 1);
       this.toWrite = [];
     }

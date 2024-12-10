@@ -32,7 +32,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
         maxreadtags = channels.length;
     }
     if (firstStart) {
-        plugin.log("Get Taglist from PLC", 1);
+        plugin.log("Get Taglist from PLC ", 1);
         try {
           scanning(tagList, plugin);
         } catch (e) {
@@ -54,7 +54,12 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                             if (item.chan.startsWith(tagname)) {
                                 upsertarr.push({ id: item.id });
                                 if (item.dataType == 'STRING') {
-                                    tag = new Structure(item.chan, tagList);
+                                    if (item.chan.includes(':')) {
+                                      const {program, name} = structProgram(item.chan)
+                                      tag = new Structure(String(name), this.tagList, program);
+                                    } else {
+                                      tag = new Structure(String(item.chan), this.tagList);
+                                    }
                                     taggroup.add(tag);
                                     tagscnt++;
                                     tagAlone[item.chan] = item.id;
@@ -69,7 +74,15 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                     }
                     if (item.missing == undefined || item.missing == 0) {
                         if (item.dataType == 'STRING') {
-                            tag = new Structure(item.chan, tagList);
+                            if (item.chan.includes(':')) {
+                              const {program, name} = structProgram(item.chan)
+                              tag = new Structure(String(name), this.tagList, program);
+                            } else {
+                              tag = new Structure(String(item.chan), this.tagList);
+                            }
+                          
+                            //tag = new Structure(item.chan, tagList);
+         
                             taggroup.add(tag);
                             tagscnt++;
                             tagAlone[item.chan] = item.id;
@@ -96,7 +109,13 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
             } else {
                 if (key.type == 'STRUCT') {
                     let tag = {};
-                    tag = new Structure(String(key.name), this.tagList);
+                    if (key.name.includes(':')) {
+                      const {program, name} = structProgram(key.name)
+                      tag = new Structure(String(name), this.tagList, program);
+                    } else {
+                      tag = new Structure(String(key.name), this.tagList);
+                    }
+                    
                     tag.parentnodefolder = key.parentnodefolder;
                     tag.ref = key.ref;
                     tag.datatype = key.type;
@@ -109,7 +128,6 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                       if (taggroup.groupName == undefined) taggroup.groupName = [];
                       taggroup.groupName.push(key.name + " " +key.size);
                       taggroupsize += key.size;
-                    
                       
                     key.ref.forEach(item => {
                         let memArr = item.chan.split(".");
@@ -183,11 +201,17 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
         tagObj = {};
         group = {};
     }
-    //plugin.log("grouparr " + util.inspect(grouparr));
+    //plugin.log("grouparr " + util.inspect(grouparr, null, 5));
     return grouparr
 
 }
 
+function structProgram(structName) {
+  const str = structName.slice(structName.indexOf(":") + 1, structName.length)
+  const program = str.slice(0, str.indexOf("."));
+  const name = str.slice(str.indexOf(".") + 1, str.length);
+  return {program, name}
+}
 
 function getPollArray(polls) {
     let arr = [];
@@ -228,6 +252,11 @@ function checkSize(obj, property, plugin) {
   if (structName.includes('[')) {
     structName = structName.substring(0, structName.indexOf('['));
   }
+  if (structName.includes(':')) {
+    const {program, name} = structProgram(structName);
+    structName = name;
+  }
+  //plugin.log("tagSize " + util.inspect(tagSize))
   if (tagSize[structName] > 50000) {
         const index = obj.chan.indexOf('.');  
         obj[property] = obj[property] + '.' + obj.chan.substring(0, index);
@@ -297,8 +326,8 @@ function byorder(ordernames, direction, parsingInt) {
 function scanning(tagList, plugin) {
     
     tagList.tags.forEach(tag => {
-        if (tag.type.structure && tag.type.typeName != 'STRING' && tag.type.typeName != 'BOOL') {
-              //plugin.log("Tagname " + tag.name);
+        if (tag.type.structure && tag.type.typeName != 'STRING' && tag.type.typeName != 'BOOL' ) {
+             // plugin.log("Tagname " + tag.name);
               tagSize[tag.name] = tagList.templates[tag.type.code]._attributes.StructureSize;
             fromTemplate(tagList, tag.name, tag.type.code, tag.program);
         } else {

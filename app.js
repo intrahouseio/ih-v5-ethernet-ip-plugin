@@ -34,11 +34,13 @@ module.exports = async function (plugin) {
     plugin.log("Client 0 " + firstClientStatus, 2);
     
   } catch (err) {
+    plugin.sendLog('Failed to connect!');
     plugin.exit(8, 'Failed to connect!');
   }
   try {
     allPolls = await tools.getPolls(channels, params, tagList, true, plugin);
   } catch (e) {
+    plugin.sendLog('error: ' + util.inspect(e));
     plugin.log('error: ' + util.inspect(e), 1);
   }
   
@@ -51,13 +53,14 @@ module.exports = async function (plugin) {
       nextClient.sendNext();
 
     } catch (e) {
+      plugin.sendLog('Client ' + i + ' error: ' + util.inspect(e));
       plugin.log('Client ' + i + ' error: ' + util.inspect(e), 1);
     }
   }
 
   plugin.onAct(async (message) => {
     plugin.log('ACT data=' + util.inspect(message.data), 1);
-
+    
     if (!message.data) return;
     /*message.data.forEach(item => {
       toWrite.push({
@@ -91,6 +94,7 @@ module.exports = async function (plugin) {
         }
 
       } catch (e) {
+        plugin.sendLog('Client ' + i + ' error: ' + util.inspect(e));
         plugin.log('Client ' + i + ' error: ' + util.inspect(e), 1);
       }
     }
@@ -101,6 +105,7 @@ module.exports = async function (plugin) {
     for (let i = 0; i < clientArr.length; i++) {
       plugin.log(await clientArr[i].PLC.disconnect());
     }
+    
     plugin.exit();
   }
 

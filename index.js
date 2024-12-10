@@ -16,6 +16,7 @@ const app = require('./app');
     plugin.log('Plugin Ethernet/IP client has started.', 0);
 
     plugin.params.data = await plugin.params.get();
+    plugin.logger.setParams(plugin.params.data);
     plugin.log('Received params data:'+util.inspect(plugin.params.data));
 
     // Получить каналы 
