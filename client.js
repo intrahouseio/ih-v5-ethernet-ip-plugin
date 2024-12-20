@@ -109,6 +109,8 @@ class Client {
             if (ref.offset == undefined) {
               if (typeof item.value === 'boolean') {
                 value = item.value == false ? 0 : 1;
+              } else if (typeof item.value === 'bigint'){
+                value = Number(item.value);
               } else {
                 value = item.value;
               }
@@ -130,6 +132,8 @@ class Client {
             if (ref.index < tag.value.length) {
               if (typeof tag.value[ref.index] === 'boolean') {
                 value = tag.value[ref.index] == false ? 0 : 1;
+              } else if (typeof tag.value[ref.index] === 'bigint') {
+                value = Number(tag.value[ref.index]);
               } else {
                 value = tag.value[ref.index];
               }
@@ -143,21 +147,23 @@ class Client {
           }
         })
       }
-      //Value Boolean Tag
-    } else if (typeof tag.value === 'boolean') {
-      value = tag.value == false ? 0 : 1;
-      if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus: 0 });
-        this.chanValues[group.tagAlone[tag.name]] = value;
-      }
-      //Value Tag
     } else {
-      value = tag.value;
+      if (typeof tag.value === 'boolean') {
+        value = tag.value == false ? 0 : 1;
+      } else if (typeof tag.value === 'bigint') {
+        value = Number(tag.value);
+      } else {
+        value = tag.value;
+      }
       if (this.chanValues[group.tagAlone[tag.name]] != value) {
-        res.push({ id: group.tagAlone[tag.name], value, title: tag.name, chstatus: 0 });
-        this.chanValues[group.tagAlone[tag.name]] = value;
+          group.tagAlone[tag.name].forEach(item => {
+            res.push({ id: item, value, title: tag.name, chstatus: 0 });
+            this.chanValues[group.tagAlone[tag.name]] = value;
+          })
+          
       }
     }
+    
     return res;
   }
 
@@ -286,11 +292,11 @@ class Client {
       }
       if (this.toWrite[i].dataType == 'STRING') {
         tag.value = String(this.toWrite[i].value);
+      } else if (this.toWrite[i].dataType == 'LINT' || this.toWrite[i].dataType == 'LWORD'){
+        tag.value = BigInt(this.toWrite[i].value);
       } else {
         tag.value = this.toWrite[i].value;
       }
-      
-
       group.add(tag);
     }
     
@@ -304,9 +310,6 @@ class Client {
     }
 
   }
-
-
-
 }
 
 module.exports = Client;

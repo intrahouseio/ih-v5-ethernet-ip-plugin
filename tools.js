@@ -60,15 +60,13 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                                     } else {
                                       tag = new Structure(String(item.chan), this.tagList);
                                     }
-                                    taggroup.add(tag);
-                                    tagscnt++;
-                                    tagAlone[item.chan] = item.id;
                                 } else {
                                     tag = new Tag(item.chan);
-                                    taggroup.add(tag);
-                                    tagscnt++;
-                                    tagAlone[item.chan] = item.id;
                                 }
+                                taggroup.add(tag);
+                                tagscnt++;
+                                if (!tagAlone[item.chan]) tagAlone[item.chan] = [];
+                                tagAlone[item.chan].push(item.id);
                             }
                         })
                     }
@@ -80,18 +78,13 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                             } else {
                               tag = new Structure(String(item.chan), this.tagList);
                             }
-                          
-                            //tag = new Structure(item.chan, tagList);
-         
-                            taggroup.add(tag);
-                            tagscnt++;
-                            tagAlone[item.chan] = item.id;
                         } else {
                             tag = new Tag(item.chan);
-                            taggroup.add(tag);
-                            tagscnt++;
-                            tagAlone[item.chan] = item.id;
                         }
+                        taggroup.add(tag);
+                        tagscnt++;
+                        if (!tagAlone[item.chan]) tagAlone[item.chan] = [];
+                        tagAlone[item.chan].push(item.id);
                     }
                     tag.itemid = item.id;
                     if (tagscnt >= 100) {
@@ -148,7 +141,13 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                 if (key.type == 'ARRAY') {
                     let tag = {};
                     if (key.nodeValueType == "STRING") {
-                      tag = new Structure(key.name, tagList, null, null, 0, 1, key.size);
+                      if (key.name.includes(':')) {
+                        const {program, name} = structProgram(key.name)
+                        tag = new Structure(name, tagList, program, null, 0, 1, key.size);
+                      } else {
+                        tag = new Structure(key.name, tagList, null, null, 0, 1, key.size);
+                      }
+                      
                     } else {
                       tag = new Tag(key.name, null, null, 0, 1, key.size);
                     }
