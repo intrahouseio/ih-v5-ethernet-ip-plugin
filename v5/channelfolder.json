@@ -49,7 +49,8 @@
       { "id": "STRING", "title": "STRING" },
       { "id": "WORD", "title": "WORD" },
       { "id": "DWORD", "title": "DWORD" },
-      { "id": "LWORD", "title": "LWORD" }
+      { "id": "LWORD", "title": "LWORD" },
+      { "id": "BIT_STRING", "title": "BIT_STRING" }
     ],
 
     "default": { "id": "INT", "title": "INT" },

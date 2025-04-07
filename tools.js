@@ -3,7 +3,7 @@
  */
 //const plugin = require('ih-plugin-api')();
 const util = require('util');
-const { Tag, TagGroup, Structure } = require('st-ethernet-ip');
+const { Tag, TagGroup, Structure, EthernetIP } = require('st-ethernet-ip');
 
 exports.getPolls = getPolls;
 exports.getPollArray = getPollArray;
@@ -79,7 +79,7 @@ async function getPolls(channels, params, tagList, firstStart, plugin) {
                               tag = new Structure(String(item.chan), this.tagList);
                             }
                         } else {
-                            tag = new Tag(item.chan);
+                            tag = new Tag(item.chan, null, EthernetIP.CIP.DataTypes.Types[item.dataType]);
                         }
                         taggroup.add(tag);
                         tagscnt++;
